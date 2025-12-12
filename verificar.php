@@ -1,5 +1,5 @@
 <?php
-include 'bd.php';
+include 'includes/bd.php';
 
 $mensaje = null;
 $error = null;
@@ -31,9 +31,16 @@ if($token === ''){
         $error = 'Error al verificar: ' . $e->getMessage();
     }
 }
-
-include 'header.php';
 ?>
+<!doctype html>
+<html lang="es">
+<head>
+    <title>Verificación</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
 <div class="container mt-5">
     <?php if($mensaje): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -47,5 +54,10 @@ include 'header.php';
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     <?php endif; ?>
-    <a class="btn btn-primary" href="index.php">Ir a iniciar sesión</a>
+    <div class="text-center">
+        <a class="btn btn-primary" href="index.php">Ir a iniciar sesión</a>
+    </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

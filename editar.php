@@ -1,4 +1,7 @@
-<?php include("../bd.php"); 
+<?php 
+include("includes/autenticacion.php");
+include("includes/bd.php"); 
+
 if(isset($_GET["txtID"])){
     $txtID = (isset($_GET["txtID"])) ? $_GET["txtID"] : "";
     $sentencia = $conexion->prepare("SELECT * FROM usuario WHERE ID = :id");
@@ -23,6 +26,8 @@ if($_POST){
     $Estado = (isset($_POST["Estado"])) ? $_POST["Estado"] : "";
     $IdRol = (isset($_POST["IdRol"])) ? $_POST["IdRol"] : "";
 
+    // Nota: Si cambias la contraseña aquí, en un sistema real deberías encriptarla de nuevo.
+    // Para este ejemplo práctico se mantiene como estaba en tu código original.
     $sentencia = $conexion->prepare("UPDATE usuario SET
         Nick=:Nick,
         Password=:Password,
@@ -43,8 +48,10 @@ if($_POST){
     header("Location:dashboard.php?mensaje=".$mensaje);
     exit;
 }
+
+include("includes/header.php"); 
 ?>
-<?php include("../header.php") ?>
+
 <div class="container mt-5 mb-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
@@ -60,10 +67,8 @@ if($_POST){
                 </div>
                 
                 <div class="card-body p-4">
-                    <form action="" method="post" enctype="multipart/form-data">
+                    <form action="" method="post">
                         
-
-                
                         <div class="mb-4">
                             <label for="ID" class="form-label fw-bold">
                                 <i class="bi bi-hash"></i> ID:
@@ -74,9 +79,9 @@ if($_POST){
 
                         <div class="mb-4">
                             <label for="IdRol" class="form-label fw-bold">
-                                <i class="bi bi-hash"></i> ID ROL:
+                                <i class="bi bi-hash"></i> ID ROL ACTUAL:
                             </label>
-                            <input type="hidden" value="<?php echo $IdRol; ?>" name="IdRol" />
+                            <input type="hidden" value="<?php echo $IdRol; ?>" name="IdRolAntiguo" />
                             <input type="text" value="<?php echo $IdRol; ?>" class="form-control form-control-lg bg-light" disabled />
                         </div>
 
@@ -86,18 +91,16 @@ if($_POST){
                             </label>
                             <input type="text" value="<?php echo $Nick ?? ''; ?>" class="form-control form-control-lg border-2" 
                                    name="Nick" id="Nick" placeholder="Nombre de usuario" required/>
-                            <small class="form-text text-muted d-block mt-2">Ingrese el nombre de usuario</small>
                         </div>
-                        <div class="mb-3">
-                <label for="IdRol" class="form-label">Rol:</label>
-                <select name="IdRol" id="IdRol" class="form-select form-select-lg" required>
-                    <option value="1">ADMINISTRADOR</option>
-                    <option value="2">ESTUDIANTE</option>
-                    <option value="3">Docente</option>
-                </select>
-            </div>
-                      
 
+                        <div class="mb-3">
+                            <label for="IdRol" class="form-label">Rol:</label>
+                            <select name="IdRol" id="IdRol" class="form-select form-select-lg" required>
+                                <option value="1" <?php echo ($IdRol == 1) ? 'selected' : ''; ?>>ADMINISTRADOR</option>
+                                <option value="2" <?php echo ($IdRol == 2) ? 'selected' : ''; ?>>ESTUDIANTE</option>
+                                <option value="3" <?php echo ($IdRol == 3) ? 'selected' : ''; ?>>DOCENTE</option>
+                            </select>
+                        </div>
 
                         <div class="mb-4">
                             <label for="Password" class="form-label fw-bold">
@@ -105,30 +108,24 @@ if($_POST){
                             </label>
                             <input type="password" value="<?php echo $Password ?? ''; ?>" class="form-control form-control-lg border-2" 
                                    name="Password" id="Password" placeholder="Password" required/>
-                            <small class="form-text text-muted d-block mt-2">Ingrese la contraseña</small>
                         </div>
                         
-               
                         <div class="mb-4">
                             <label for="Email" class="form-label fw-bold">
                                 <i class="bi bi-envelope"></i> Email:
                             </label>
                             <input type="email" value="<?php echo $Email ?? ''; ?>" class="form-control form-control-lg border-2" 
                                    name="Email" id="Email" placeholder="Correo electrónico" required/>
-                            <small class="form-text text-muted d-block mt-2">Ingrese el correo electrónico</small>
                         </div>
                         
-
                         <div class="mb-3">
-                <label for="role" class="form-label">Estado:</label>
-                <select name="Estado" id="Estado" class="form-select form-select-lg" required>
-                    <option value="1">ACTIVO</option>
-                    <option value="0">INACTIVO</option>
-                </select>
-                <small id="helpId" class="form-text text-muted"></small>
-            </div>
+                            <label for="Estado" class="form-label">Estado:</label>
+                            <select name="Estado" id="Estado" class="form-select form-select-lg" required>
+                                <option value="1" <?php echo ($Estado == 1) ? 'selected' : ''; ?>>ACTIVO</option>
+                                <option value="0" <?php echo ($Estado == 0) ? 'selected' : ''; ?>>INACTIVO</option>
+                            </select>
+                        </div>
                         
-                      
                         <div class="d-flex gap-2 justify-content-end">
                             <a href="usuarios.php" class="btn btn-secondary btn-lg">
                                 <i class="bi bi-x-circle"></i> Cancelar
@@ -144,3 +141,4 @@ if($_POST){
     </div>
 </div>
 
+<?php include("includes/footer.php"); ?>

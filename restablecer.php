@@ -1,5 +1,5 @@
 <?php
-include 'bd.php';
+include 'includes/bd.php';
 
 $token = $_GET['token'] ?? '';
 $error = null;
@@ -46,8 +46,11 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
                 $hash = password_hash($pass1, PASSWORD_BCRYPT);
                 $upd = $conexion->prepare('UPDATE usuario SET Password = :p WHERE ID = :id');
                 $upd->execute([':p'=>$hash, ':id'=>$row['user_id']]);
+                
+                // Borrar token usado
                 $del = $conexion->prepare('DELETE FROM restablecer_contraseña WHERE id = :id');
                 $del->execute([':id'=>$row['id']]);
+                
                 $mensaje = 'Contraseña actualizada. Ya puedes iniciar sesión.';
                 $valido = false;
             }
@@ -57,8 +60,19 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     }
 }
 
-include 'header.php';
+// Usamos el include pero cuidado: este archivo puede accederse sin sesión
+// Si header.php depende de sesión, podría dar error. 
+// Para este caso específico, usaremos un header simple inline si no hay sesión.
 ?>
+<!doctype html>
+<html lang="es">
+<head>
+    <title>Restablecer</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
 <div class="container mt-5">
     <?php if($mensaje): ?>
         <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -76,9 +90,9 @@ include 'header.php';
     <?php if($valido): ?>
         <div class="row justify-content-center">
             <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">Restablecer contraseña</div>
-                    <div class="card-body">
+                <div class="card shadow-sm">
+                    <div class="card-header text-center">Restablecer contraseña</div>
+                    <div class="card-body p-4">
                         <form method="post">
                             <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
                             <div class="mb-3">
@@ -89,13 +103,20 @@ include 'header.php';
                                 <label class="form-label">Confirmar contraseña</label>
                                 <input type="password" name="Password2" class="form-control" required>
                             </div>
-                            <button class="btn btn-primary" type="submit">Guardar</button>
+                            <div class="d-grid">
+                                <button class="btn btn-primary" type="submit">Guardar</button>
+                            </div>
                         </form>
                     </div>
                 </div>
             </div>
         </div>
     <?php else: ?>
-        <a class="btn btn-primary" href="index.php">Ir a iniciar sesión</a>
+        <div class="text-center">
+            <a class="btn btn-primary" href="index.php">Ir a iniciar sesión</a>
+        </div>
     <?php endif; ?>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
