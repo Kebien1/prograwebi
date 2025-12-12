@@ -1,0 +1,24 @@
+name: Despliegue a InfinityFree
+on:
+  push:
+    branches:
+      - main
+      - master  # Pongo los dos por si tu rama se llama 'master'
+
+jobs:
+  web-deploy:
+    name: 🎉 Subiendo archivos
+    runs-on: ubuntu-latest
+    steps:
+    - name: 🚚 Obtener tu código
+      uses: actions/checkout@v4
+    
+    - name: 📂 Sincronizar con InfinityFree
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: ./htdocs/
+        # IMPORTANTE: El './htdocs/' es vital para InfinityFree. 
+        # Si lo quitas, tu web no se verá.
