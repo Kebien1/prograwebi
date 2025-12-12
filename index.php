@@ -66,7 +66,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
   <div class="row justify-content-center">
     <div class="col-md-5">
       <div class="card shadow-sm">
-        <div class="card-header">Iniciar sesión (prueba GITHUB) otra vez</div>
+        <div class="card-header">Iniciar sesión</div>
         <div class="card-body">
           <form method="post">
             <div class="mb-3">
