@@ -4,10 +4,9 @@ require_once '../../includes/security.php';
 verificarRol(3); 
 require_once '../../includes/header.php';
 
-// Obtener ID del estudiante
 $uid = $_SESSION['usuario_id'];
 
-// 1. Consultar Cursos Comprados
+// Consultar Cursos
 $sqlCursos = "SELECT c.id, c.titulo, c.descripcion, comp.fecha_compra 
               FROM compras comp 
               JOIN cursos c ON comp.item_id = c.id 
@@ -17,7 +16,7 @@ $listaCursos = $conexion->prepare($sqlCursos);
 $listaCursos->execute([$uid]);
 $misCursos = $listaCursos->fetchAll();
 
-// 2. Consultar Libros Comprados
+// Consultar Libros
 $sqlLibros = "SELECT l.id, l.titulo, l.archivo_pdf, comp.fecha_compra 
               FROM compras comp 
               JOIN libros l ON comp.item_id = l.id 
@@ -64,11 +63,9 @@ $misLibros = $listaLibros->fetchAll();
                                         <small class="text-muted">
                                             <i class="bi bi-calendar3"></i> <?php echo date('d/m/Y', strtotime($c['fecha_compra'])); ?>
                                         </small>
-                                        
                                         <a href="aula.php?id=<?php echo $c['id']; ?>" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm">
                                             <i class="bi bi-play-fill"></i> Ir al Aula
                                         </a>
-
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -98,9 +95,11 @@ $misLibros = $listaLibros->fetchAll();
                                         <small class="text-muted">
                                             <i class="bi bi-calendar3"></i> <?php echo date('d/m/Y', strtotime($l['fecha_compra'])); ?>
                                         </small>
-                                        <a href="../../uploads/libros/<?php echo $l['archivo_pdf']; ?>" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3">
-                                            <i class="bi bi-download"></i> Descargar
+                                        
+                                        <a href="ver_archivo.php?id=<?php echo $l['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            <i class="bi bi-eye"></i> Leer Online
                                         </a>
+
                                     </div>
                                 </div>
                             <?php endforeach; ?>

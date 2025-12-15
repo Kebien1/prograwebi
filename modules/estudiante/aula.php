@@ -1,10 +1,9 @@
 <?php
 require_once '../../config/bd.php';
 require_once '../../includes/security.php';
-verificarRol(3); // Solo estudiantes
+verificarRol(3); 
 require_once '../../includes/header.php';
 
-// 1. Obtener ID del curso de la URL
 $id_curso = $_GET['id'] ?? 0;
 
 if (!$id_curso) {
@@ -12,18 +11,15 @@ if (!$id_curso) {
     exit;
 }
 
-// 2. VERIFICACIÓN DE SEGURIDAD: ¿El usuario compró este curso?
 $sqlCheck = "SELECT id FROM compras WHERE usuario_id = ? AND item_id = ? AND tipo_item = 'curso'";
 $stmtCheck = $conexion->prepare($sqlCheck);
 $stmtCheck->execute([$_SESSION['usuario_id'], $id_curso]);
 
 if ($stmtCheck->rowCount() == 0) {
-    // Si no tiene compra, lo mandamos a ver el detalle del curso
     echo "<script>alert('Acceso denegado. Debes adquirir el curso primero.'); window.location='ver_curso.php?id=$id_curso';</script>";
     exit;
 }
 
-// 3. Obtener datos generales del curso
 $stmt = $conexion->prepare("SELECT * FROM cursos WHERE id = ?");
 $stmt->execute([$id_curso]);
 $curso = $stmt->fetch();
@@ -34,13 +30,11 @@ if (!$curso) {
     exit;
 }
 
-// 4. OBTENER LECCIONES DE LA BASE DE DATOS
 $sqlLecciones = "SELECT * FROM lecciones WHERE curso_id = ? ORDER BY orden ASC";
 $stmtLecciones = $conexion->prepare($sqlLecciones);
 $stmtLecciones->execute([$id_curso]);
 $lecciones = $stmtLecciones->fetchAll();
 
-// Si no hay lecciones creadas por el docente
 if (empty($lecciones)) {
     echo "<div class='container mt-5'>
             <div class='alert alert-info shadow-sm'>
@@ -53,19 +47,14 @@ if (empty($lecciones)) {
     exit;
 }
 
-// 5. Determinar qué lección mostrar
-// Usamos el índice del array (0 para la primera, 1 para la segunda, etc.)
 $indice_actual = isset($_GET['indice']) ? (int)$_GET['indice'] : 0;
-
-// Validar que el índice exista
 if (!isset($lecciones[$indice_actual])) {
-    $indice_actual = 0; // Si pone un número inválido, mostramos la primera
+    $indice_actual = 0;
 }
-
 $clase_actual = $lecciones[$indice_actual];
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid" id="aula-container">
     <div class="row flex-nowrap">
         
         <div class="col-auto col-md-3 col-xl-2 px-0 bg-dark border-end border-secondary">
@@ -157,5 +146,21 @@ $clase_actual = $lecciones[$indice_actual];
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 1. Bloquear Clic Derecho
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+    });
+
+    // 2. Bloquear Teclas de Inspección (F12, Ctrl+U, Ctrl+Shift+I)
+    document.onkeydown = function(e) {
+        if(e.keyCode == 123) { return false; } // F12
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; } // Ctrl+Shift+I
+        if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { return false; } // Ctrl+Shift+J
+        if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; } // Ctrl+U
+    }
+</script>
+
 </body>
 </html>
