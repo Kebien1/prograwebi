@@ -35,10 +35,6 @@ if (!$id || !$tipo) {
         <div class="col-md-8">
             <h4 class="mb-4 fw-bold">Elige tu método de pago</h4>
             
-            <div class="alert alert-info border-0 shadow-sm mb-4">
-                <i class="bi bi-shield-check me-2"></i> <strong>Modo Seguro:</strong> Al ser una plataforma educativa de demostración, no solicitamos datos bancarios reales.
-            </div>
-            
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white">
                     <ul class="nav nav-tabs card-header-tabs" id="misTabs" role="tablist">
