@@ -1,6 +1,6 @@
 <?php
 
-
+define('BASE_URL', 'https://prograweb1.infinityfreeapp.com/');
 // ... resto del código de conexión ...
 $servidor = "sql111.infinityfree.com";
 $basededatos = "if0_40651214_db_prograwebi"; 
