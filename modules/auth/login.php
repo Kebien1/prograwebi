@@ -2,7 +2,7 @@
 session_start();
 require_once '../../config/bd.php';
 
-// Si llega mensaje de registro
+// Mensajes de redirección previos
 $mensaje = "";
 if (isset($_GET['mensaje']) && $_GET['mensaje'] == 'registrado') {
     $mensaje = "<div class='alert alert-success'>¡Registro exitoso! Te hemos enviado un código a tu correo.</div>";
@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
 
-    // 1. Obtener datos del usuario
+    // 1. Obtener datos del usuario y su límite de sesiones
     $sql = "SELECT u.*, p.limite_sesiones, p.nombre as plan_nombre 
             FROM usuarios u 
             JOIN planes p ON u.plan_id = p.id 
@@ -27,56 +27,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($usuario && password_verify($password, $usuario['password'])) {
         
-        // 2. VERIFICACIÓN DE CUENTA (CAMBIO CLAVE AQUÍ)
+        // 2. VERIFICACIÓN DE CUENTA
         if ($usuario['verificado'] == 0) {
-            // Si no está verificado, le damos el link para que vaya a poner el código
             $link = "verificar.php?email=" . urlencode($email);
             $mensaje = "<div class='alert alert-warning'>
                             <i class='bi bi-exclamation-triangle'></i> Tu cuenta no está verificada.<br>
                             <a href='$link' class='fw-bold text-dark text-decoration-underline'>Haz clic aquí para ingresar tu código</a>
                         </div>";
         } else {
-            // --- CONTROL DE SESIONES (Igual que antes) ---
+            // --- CONTROL DE SESIONES (LÓGICA MODIFICADA) ---
             
-            // A. Contar sesiones activas
+            // A. Contar sesiones activas actuales de este usuario
             $stmtCount = $conexion->prepare("SELECT COUNT(*) FROM sesiones_activas WHERE usuario_id = ?");
             $stmtCount->execute([$usuario['id']]);
             $sesiones_actuales = $stmtCount->fetchColumn();
 
-            // B. Borrar antigua si supera límite
+            // B. VERIFICAR SI YA ALCANZÓ EL LÍMITE
             if ($sesiones_actuales >= $usuario['limite_sesiones']) {
-                $borrar = ($sesiones_actuales - $usuario['limite_sesiones']) + 1;
-                $sqlDel = "DELETE FROM sesiones_activas WHERE usuario_id = :uid ORDER BY ultimo_acceso ASC LIMIT $borrar";
-                $conexion->prepare($sqlDel)->execute([':uid' => $usuario['id']]);
+                // ¡ALTO! Ya hay demasiadas sesiones. No dejamos entrar.
+                $mensaje = "<div class='alert alert-danger shadow-sm border-danger'>
+                                <h5 class='alert-heading fw-bold'><i class='bi bi-shield-lock-fill'></i> Acceso Denegado</h5>
+                                <p class='mb-0'>Tu plan <strong>{$usuario['plan_nombre']}</strong> solo permite <strong>{$usuario['limite_sesiones']}</strong> dispositivo(s) simultáneo(s).</p>
+                                <hr>
+                                <p class='mb-0 small'>Por favor, cierra sesión en otro dispositivo para poder ingresar aquí.</p>
+                            </div>";
+            } else {
+                // C. Si hay espacio, procedemos a registrar la nueva sesión
+                
+                session_regenerate_id(true);
+                $session_id = session_id();
+                $ip = $_SERVER['REMOTE_ADDR'];
+                $ua = $_SERVER['HTTP_USER_AGENT'];
+
+                // Guardar la nueva sesión en la BD
+                $sqlSesion = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) 
+                              VALUES (:sid, :uid, :ip, :ua, NOW())";
+                $conexion->prepare($sqlSesion)->execute([
+                    ':sid' => $session_id,
+                    ':uid' => $usuario['id'],
+                    ':ip' => $ip,
+                    ':ua' => $ua
+                ]);
+
+                // D. Variables de sesión PHP
+                $_SESSION['usuario_id'] = $usuario['id'];
+                $_SESSION['nombre'] = $usuario['nombre_completo'];
+                $_SESSION['rol_id'] = $usuario['rol_id'];
+                $_SESSION['plan_nombre'] = $usuario['plan_nombre'];
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
+
+                // Redirección según rol
+                if ($usuario['rol_id'] == 1) header("Location: ../admin/dashboard.php");
+                elseif ($usuario['rol_id'] == 2) header("Location: ../docente/dashboard.php");
+                else header("Location: ../estudiante/dashboard.php");
+                exit;
             }
-
-            // C. Registrar nueva sesión
-            session_regenerate_id(true);
-            $session_id = session_id();
-            $ip = $_SERVER['REMOTE_ADDR'];
-            $ua = $_SERVER['HTTP_USER_AGENT'];
-
-            $sqlSesion = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) 
-                          VALUES (:sid, :uid, :ip, :ua, NOW())";
-            $conexion->prepare($sqlSesion)->execute([
-                ':sid' => $session_id,
-                ':uid' => $usuario['id'],
-                ':ip' => $ip,
-                ':ua' => $ua
-            ]);
-
-            // D. Variables de sesión
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['nombre'] = $usuario['nombre_completo'];
-            $_SESSION['rol_id'] = $usuario['rol_id'];
-            $_SESSION['plan_nombre'] = $usuario['plan_nombre'];
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Inicializamos seguridad CSRF
-
-            // Redirección
-            if ($usuario['rol_id'] == 1) header("Location: ../admin/dashboard.php");
-            elseif ($usuario['rol_id'] == 2) header("Location: ../docente/dashboard.php");
-            else header("Location: ../estudiante/dashboard.php");
-            exit;
         }
 
     } else {
