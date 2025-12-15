@@ -2,92 +2,58 @@
 session_start();
 require_once '../../config/bd.php';
 
-// Mensajes de redirección previos
 $mensaje = "";
 if (isset($_GET['mensaje']) && $_GET['mensaje'] == 'registrado') {
-    $mensaje = "<div class='alert alert-success'>¡Registro exitoso! Te hemos enviado un código a tu correo.</div>";
+    $mensaje = "<div class='alert alert-success'>¡Registro exitoso! Verifica tu cuenta.</div>";
 }
 if (isset($_GET['error']) && $_GET['error'] == 'expulsado') {
-    $mensaje = "<div class='alert alert-warning'><strong>Sesión cerrada.</strong> Se ha abierto tu cuenta en otro dispositivo.</div>";
+    $mensaje = "<div class='alert alert-warning'>Sesión cerrada.</div>";
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
 
-    // 1. Obtener datos del usuario y su límite de sesiones
-    $sql = "SELECT u.*, p.limite_sesiones, p.nombre as plan_nombre 
-            FROM usuarios u 
-            JOIN planes p ON u.plan_id = p.id 
-            WHERE u.email = :email AND u.estado = 1 LIMIT 1";
-    
+    $sql = "SELECT * FROM usuarios WHERE email = :email AND estado = 1 LIMIT 1";
     $stmt = $conexion->prepare($sql);
     $stmt->execute([':email' => $email]);
     $usuario = $stmt->fetch();
 
     if ($usuario && password_verify($password, $usuario['password'])) {
         
-        // 2. VERIFICACIÓN DE CUENTA
         if ($usuario['verificado'] == 0) {
-            $link = "verificar.php?email=" . urlencode($email);
-            $mensaje = "<div class='alert alert-warning'>
-                            <i class='bi bi-exclamation-triangle'></i> Tu cuenta no está verificada.<br>
-                            <a href='$link' class='fw-bold text-dark text-decoration-underline'>Haz clic aquí para ingresar tu código</a>
-                        </div>";
+            header("Location: verificar.php?email=" . urlencode($email));
+            exit;
         } else {
-            // --- CONTROL DE SESIONES ---
-            
-            // A. Contar sesiones activas actuales de este usuario
-            $stmtCount = $conexion->prepare("SELECT COUNT(*) FROM sesiones_activas WHERE usuario_id = ?");
-            $stmtCount->execute([$usuario['id']]);
-            $sesiones_actuales = $stmtCount->fetchColumn();
+            // LOGIN EXITOSO
+            session_regenerate_id(true);
+            $session_id = session_id();
 
-            // B. VERIFICAR SI YA ALCANZÓ EL LÍMITE (EXCLUYENDO ADMINISTRADORES)
-            // Si NO es admin (rol_id != 1) Y ha superado el límite, bloqueamos.
-            if ($usuario['rol_id'] != 1 && $sesiones_actuales >= $usuario['limite_sesiones']) {
-                
-                // ¡ALTO! Ya hay demasiadas sesiones. No dejamos entrar.
-                $mensaje = "<div class='alert alert-danger shadow-sm border-danger'>
-                                <h5 class='alert-heading fw-bold'><i class='bi bi-shield-lock-fill'></i> Acceso Denegado</h5>
-                                <p class='mb-0'>Tu plan <strong>{$usuario['plan_nombre']}</strong> solo permite <strong>{$usuario['limite_sesiones']}</strong> dispositivo(s) simultáneo(s).</p>
-                                <hr>
-                                <p class='mb-0 small'>Por favor, cierra sesión en otro dispositivo para poder ingresar aquí.</p>
-                            </div>";
-            } else {
-                // C. Si es Admin O si hay espacio disponible, procedemos a registrar la sesión
-                
-                session_regenerate_id(true);
-                $session_id = session_id();
-                $ip = $_SERVER['REMOTE_ADDR'];
-                $ua = $_SERVER['HTTP_USER_AGENT'];
+            // Limpiar sesiones anteriores de este usuario para mantener limpia la tabla
+            $conexion->prepare("DELETE FROM sesiones_activas WHERE usuario_id = ?")->execute([$usuario['id']]);
 
-                // Guardar la nueva sesión en la BD
-                $sqlSesion = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) 
-                              VALUES (:sid, :uid, :ip, :ua, NOW())";
-                $conexion->prepare($sqlSesion)->execute([
-                    ':sid' => $session_id,
-                    ':uid' => $usuario['id'],
-                    ':ip' => $ip,
-                    ':ua' => $ua
-                ]);
+            $sqlSesion = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) 
+                          VALUES (:sid, :uid, :ip, :ua, NOW())";
+            $conexion->prepare($sqlSesion)->execute([
+                ':sid' => $session_id,
+                ':uid' => $usuario['id'],
+                ':ip' => $_SERVER['REMOTE_ADDR'],
+                ':ua' => $_SERVER['HTTP_USER_AGENT']
+            ]);
 
-                // D. Variables de sesión PHP
-                $_SESSION['usuario_id'] = $usuario['id'];
-                $_SESSION['nombre'] = $usuario['nombre_completo'];
-                $_SESSION['rol_id'] = $usuario['rol_id'];
-                $_SESSION['plan_nombre'] = $usuario['plan_nombre'];
-                $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
+            $_SESSION['usuario_id'] = $usuario['id'];
+            $_SESSION['nombre'] = $usuario['nombre_completo'];
+            $_SESSION['rol_id'] = $usuario['rol_id'];
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); 
 
-                // Redirección según rol
-                if ($usuario['rol_id'] == 1) header("Location: ../admin/dashboard.php");
-                elseif ($usuario['rol_id'] == 2) header("Location: ../docente/dashboard.php");
-                else header("Location: ../estudiante/dashboard.php");
-                exit;
-            }
+            if ($usuario['rol_id'] == 1) header("Location: ../admin/dashboard.php");
+            elseif ($usuario['rol_id'] == 2) header("Location: ../docente/dashboard.php");
+            else header("Location: ../estudiante/dashboard.php");
+            exit;
         }
 
     } else {
-        $mensaje = "<div class='alert alert-danger'>Correo o contraseña incorrectos.</div>";
+        $mensaje = "<div class='alert alert-danger'>Credenciales incorrectas.</div>";
     }
 }
 ?>

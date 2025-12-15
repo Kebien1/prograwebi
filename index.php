@@ -22,9 +22,9 @@ try {
 // 5. Obtener Cursos RECIENTES
 try {
     $sqlCursos = "SELECT c.*, u.nombre_completo as docente 
-                  FROM cursos c 
-                  JOIN usuarios u ON c.docente_id = u.id 
-                  ORDER BY c.id DESC LIMIT 6";
+                    FROM cursos c 
+                    JOIN usuarios u ON c.docente_id = u.id 
+                    ORDER BY c.id DESC LIMIT 6";
     $stmtCursos = $conexion->query($sqlCursos);
     $cursos = $stmtCursos->fetchAll();
 } catch (Exception $e) { $cursos = []; }
