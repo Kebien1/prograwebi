@@ -35,15 +35,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <a href='$link' class='fw-bold text-dark text-decoration-underline'>Haz clic aquí para ingresar tu código</a>
                         </div>";
         } else {
-            // --- CONTROL DE SESIONES (LÓGICA MODIFICADA) ---
+            // --- CONTROL DE SESIONES ---
             
             // A. Contar sesiones activas actuales de este usuario
             $stmtCount = $conexion->prepare("SELECT COUNT(*) FROM sesiones_activas WHERE usuario_id = ?");
             $stmtCount->execute([$usuario['id']]);
             $sesiones_actuales = $stmtCount->fetchColumn();
 
-            // B. VERIFICAR SI YA ALCANZÓ EL LÍMITE
-            if ($sesiones_actuales >= $usuario['limite_sesiones']) {
+            // B. VERIFICAR SI YA ALCANZÓ EL LÍMITE (EXCLUYENDO ADMINISTRADORES)
+            // Si NO es admin (rol_id != 1) Y ha superado el límite, bloqueamos.
+            if ($usuario['rol_id'] != 1 && $sesiones_actuales >= $usuario['limite_sesiones']) {
+                
                 // ¡ALTO! Ya hay demasiadas sesiones. No dejamos entrar.
                 $mensaje = "<div class='alert alert-danger shadow-sm border-danger'>
                                 <h5 class='alert-heading fw-bold'><i class='bi bi-shield-lock-fill'></i> Acceso Denegado</h5>
@@ -52,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <p class='mb-0 small'>Por favor, cierra sesión en otro dispositivo para poder ingresar aquí.</p>
                             </div>";
             } else {
-                // C. Si hay espacio, procedemos a registrar la nueva sesión
+                // C. Si es Admin O si hay espacio disponible, procedemos a registrar la sesión
                 
                 session_regenerate_id(true);
                 $session_id = session_id();
