@@ -16,7 +16,7 @@ $password = $_POST['password'];
 $stmt = $conexion->prepare("SELECT id FROM usuarios WHERE email = ?");
 $stmt->execute([$email]);
 if ($stmt->rowCount() > 0) {
-    echo "<script>alert('El correo $email ya está registrado.'); window.location='registro.php';</script>";
+    echo "<script>alert('El correo ya existe.'); window.location='registro.php';</script>";
     exit;
 }
 
@@ -25,38 +25,35 @@ $passHash = password_hash($password, PASSWORD_BCRYPT);
 try {
     $conexion->beginTransaction();
 
-    // Insertar Usuario (rol_id 3 = estudiante)
+    // 1. Insertar Usuario (Estado 1=Activo, Verificado 0=No)
     $sqlUser = "INSERT INTO usuarios (nombre_completo, email, password, rol_id, estado, verificado, fecha_registro) 
-                VALUES (:nom, :email, :pass, 3, 1, 0, NOW())";
-    $stmtInsert = $conexion->prepare($sqlUser);
-    $stmtInsert->execute([
-        ':nom' => $nombre,
-        ':email' => $email,
-        ':pass' => $passHash
-    ]);
+                VALUES (?, ?, ?, 3, 1, 0, NOW())";
+    $conexion->prepare($sqlUser)->execute([$nombre, $email, $passHash]);
     $usuario_id = $conexion->lastInsertId();
 
-    // Token
+    // 2. Generar Código
     $token = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
     $sqlToken = "INSERT INTO verificacion_tokens (usuario_id, token, creado_el) VALUES (?, ?, NOW())";
     $conexion->prepare($sqlToken)->execute([$usuario_id, $token]);
 
-    // Enviar Correo
+    // 3. Enviar Correo
     $mail = crearMailer();
     if ($mail) {
         $mail->addAddress($email, $nombre);
         $mail->isHTML(true);
-        $mail->Subject = 'Verifica tu cuenta - EduPlatform';
-        $mail->Body = "<h3>Bienvenido a EduPlatform</h3><p>Tu código de verificación es: <b>$token</b></p>";
+        $mail->Subject = 'Verifica tu cuenta';
+        $mail->Body = "<h3>Hola $nombre</h3><p>Tu código de verificación es: <b>$token</b></p>";
         $mail->send();
     }
 
     $conexion->commit();
+    
+    // Mandar a verificar
     header("Location: verificar.php?email=" . urlencode($email));
     exit;
 
 } catch (Exception $e) {
     $conexion->rollBack();
-    die("Error al registrar: " . $e->getMessage());
+    die("Error: " . $e->getMessage());
 }
 ?>
