@@ -37,6 +37,16 @@ try {
     <title>EduPlatform | Aprende sin límites</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        /* Efecto hover suave para las tarjetas */
+        .hover-scale:hover {
+            transform: scale(1.02);
+            transition: transform 0.3s ease;
+        }
+        .transition-card {
+            transition: transform 0.3s ease;
+        }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -145,11 +155,21 @@ try {
                 <div class="row row-cols-1 row-cols-md-3 g-4">
                     <?php foreach($cursos as $c): ?>
                         <div class="col">
-                            <div class="card h-100 border-0 shadow-sm">
-                                <div class="bg-light ratio ratio-16x9 d-flex align-items-center justify-content-center text-secondary">
-                                    <i class="bi bi-play-circle display-1 opacity-25"></i>
-                                </div>
+                            <div class="card h-100 border-0 shadow-sm hover-scale transition-card">
                                 
+                                <?php 
+                                    // Ruta relativa desde index.php a la carpeta de uploads
+                                    $ruta_imagen = "uploads/cursos/" . $c['imagen_portada'];
+                                    
+                                    // Verificamos si existe la imagen en la carpeta y en la base de datos
+                                    if (!empty($c['imagen_portada']) && file_exists($ruta_imagen)): 
+                                ?>
+                                    <img src="<?php echo $ruta_imagen; ?>" class="card-img-top" alt="Portada del curso" style="height: 200px; object-fit: cover;">
+                                <?php else: ?>
+                                    <div class="bg-light ratio ratio-16x9 d-flex align-items-center justify-content-center text-secondary" style="height: 200px;">
+                                        <i class="bi bi-card-image display-1 opacity-25"></i>
+                                    </div>
+                                <?php endif; ?>
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between mb-2">
                                         <span class="badge bg-primary bg-opacity-10 text-primary">Nuevo</span>
