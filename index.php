@@ -1,30 +1,24 @@
 <?php
-// 1. INICIAR SESIÓN (IMPORTANTE: Esto debe ir al principio)
+// 1. INICIAR SESIÓN
 session_start();
 
 // 2. Configuración
 require_once 'config/bd.php';
 
 // 3. Determinar URL del Dashboard si está logueado
-$dashboardUrl = "modules/auth/login.php"; // Por defecto al login
+$dashboardUrl = "modules/auth/login.php"; 
 if(isset($_SESSION['rol_id'])) {
     if($_SESSION['rol_id'] == 1) $dashboardUrl = "modules/admin/dashboard.php";
     elseif($_SESSION['rol_id'] == 2) $dashboardUrl = "modules/docente/dashboard.php";
     else $dashboardUrl = "modules/estudiante/dashboard.php";
 }
 
-// 4. Obtener Planes (Consultas de BD)
-try {
-    $stmtPlanes = $conexion->query("SELECT * FROM planes ORDER BY precio ASC");
-    $planes = $stmtPlanes->fetchAll();
-} catch (Exception $e) { $planes = []; }
-
-// 5. Obtener Cursos RECIENTES
+// 4. Obtener Cursos RECIENTES (Sin precios)
 try {
     $sqlCursos = "SELECT c.*, u.nombre_completo as docente 
-                    FROM cursos c 
-                    JOIN usuarios u ON c.docente_id = u.id 
-                    ORDER BY c.id DESC LIMIT 6";
+                  FROM cursos c 
+                  JOIN usuarios u ON c.docente_id = u.id 
+                  ORDER BY c.id DESC LIMIT 6";
     $stmtCursos = $conexion->query($sqlCursos);
     $cursos = $stmtCursos->fetchAll();
 } catch (Exception $e) { $cursos = []; }
@@ -34,18 +28,13 @@ try {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>EduPlatform | Aprende sin límites</title>
+    <title>EduPlatform | Educación Gratuita</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        /* Efecto hover suave para las tarjetas */
-        .hover-scale:hover {
-            transform: scale(1.02);
-            transition: transform 0.3s ease;
-        }
-        .transition-card {
-            transition: transform 0.3s ease;
-        }
+        .hover-scale:hover { transform: scale(1.02); transition: 0.3s; }
+        .hero-section { background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://source.unsplash.com/1600x900/?education,library'); background-size: cover; background-position: center; }
+        .feature-icon { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; }
     </style>
 </head>
 <body class="bg-light">
@@ -62,19 +51,19 @@ try {
             <div class="collapse navbar-collapse" id="menuPrincipal">
                 <ul class="navbar-nav ms-auto gap-2 align-items-center">
                     <li class="nav-item"><a class="nav-link" href="#cursos">Cursos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#planes">Planes</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#como-funciona">Cómo Funciona</a></li>
                     
                     <?php if(isset($_SESSION['usuario_id'])): ?>
-                        <li class="nav-item ms-lg-3 d-flex align-items-center">
-                            <span class="text-white me-3 small">Hola, <strong><?php echo htmlspecialchars($_SESSION['nombre']); ?></strong></span>
+                        <li class="nav-item ms-lg-3">
+                            <span class="text-white me-2 small">Hola, <strong><?php echo htmlspecialchars($_SESSION['nombre']); ?></strong></span>
                         </li>
                         <li class="nav-item">
                             <a href="<?php echo $dashboardUrl; ?>" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold text-dark">
-                                <i class="bi bi-speedometer2"></i> Ir a Mi Panel
+                                <i class="bi bi-speedometer2"></i> Mi Panel
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="modules/auth/logout.php" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="Cerrar Sesión">
+                            <a href="modules/auth/logout.php" class="btn btn-outline-secondary btn-sm rounded-pill px-3" title="Salir">
                                 <i class="bi bi-power"></i>
                             </a>
                         </li>
@@ -83,10 +72,9 @@ try {
                             <a href="modules/auth/login.php" class="btn btn-outline-light btn-sm rounded-pill px-3">Ingresar</a>
                         </li>
                         <li class="nav-item">
-                            <a href="modules/auth/registro.php" class="btn btn-primary btn-sm rounded-pill px-3 fw-bold">Registrarse</a>
+                            <a href="modules/auth/registro.php" class="btn btn-primary btn-sm rounded-pill px-3 fw-bold">Registrarse Gratis</a>
                         </li>
                     <?php endif; ?>
-                    
                 </ul>
             </div>
         </div>
@@ -96,24 +84,24 @@ try {
         <div class="container py-5">
             <div class="row justify-content-center">
                 <div class="col-lg-8">
-                    <h1 class="display-4 fw-bold mb-3">Domina el Futuro Hoy</h1>
-                    <p class="lead mb-4 opacity-75">
-                        Accede a la mejor educación online. Cursos prácticos, instructores expertos y una comunidad global esperándote.
+                    <h1 class="display-4 fw-bold mb-3">Aprende sin Límites ni Costos</h1>
+                    <p class="lead mb-4 opacity-90">
+                        Accede a una educación de calidad de forma totalmente gratuita. Únete a nuestra comunidad y domina nuevas habilidades hoy mismo.
                     </p>
                     
                     <div class="d-flex justify-content-center gap-3">
-                        <?php if(isset($_SESSION['usuario_id'])): ?>
-                            <a href="<?php echo $dashboardUrl; ?>" class="btn btn-light btn-lg text-primary fw-bold px-4 rounded-pill shadow-sm">
-                                Continuar Aprendiendo
+                        <?php if(!isset($_SESSION['usuario_id'])): ?>
+                            <a href="modules/auth/registro.php" class="btn btn-light btn-lg text-primary fw-bold px-4 rounded-pill shadow-sm">
+                                Empezar Ahora
                             </a>
                         <?php else: ?>
-                            <a href="modules/auth/registro.php" class="btn btn-light btn-lg text-primary fw-bold px-4 rounded-pill shadow-sm">
-                                Empezar Gratis
+                            <a href="<?php echo $dashboardUrl; ?>" class="btn btn-light btn-lg text-primary fw-bold px-4 rounded-pill shadow-sm">
+                                Ir a mis Clases
                             </a>
                         <?php endif; ?>
                         
                         <a href="#cursos" class="btn btn-outline-light btn-lg px-4 rounded-pill">
-                            Ver Catálogo
+                            Explorar Cursos
                         </a>
                     </div>
                 </div>
@@ -121,61 +109,105 @@ try {
         </div>
     </header>
 
-    <section class="py-5 bg-white border-bottom">
+    <section class="py-4 bg-white border-bottom">
         <div class="container">
             <div class="row text-center g-4">
                 <div class="col-md-4">
-                    <h2 class="fw-bold text-primary display-6">+10k</h2>
-                    <p class="text-muted text-uppercase fw-bold small">Estudiantes</p>
+                    <h2 class="fw-bold text-primary mb-0">+100</h2>
+                    <p class="text-muted small text-uppercase fw-bold">Cursos Gratis</p>
                 </div>
                 <div class="col-md-4">
-                    <h2 class="fw-bold text-success display-6">+500</h2>
-                    <p class="text-muted text-uppercase fw-bold small">Cursos</p>
+                    <h2 class="fw-bold text-success mb-0">24/7</h2>
+                    <p class="text-muted small text-uppercase fw-bold">Acceso Online</p>
                 </div>
                 <div class="col-md-4">
-                    <h2 class="fw-bold text-warning display-6">4.8</h2>
-                    <p class="text-muted text-uppercase fw-bold small">Valoración</p>
+                    <h2 class="fw-bold text-warning mb-0">100%</h2>
+                    <p class="text-muted small text-uppercase fw-bold">Gratuito</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="cursos" class="py-5 bg-light">
+    <section id="como-funciona" class="py-5 bg-light">
         <div class="container py-4">
             <div class="text-center mb-5">
-                <h2 class="fw-bold">Cursos Recientes</h2>
-                <p class="text-muted">Explora lo último de nuestros docentes.</p>
+                <h2 class="fw-bold">¿Cómo funciona?</h2>
+                <p class="text-muted">Es muy fácil empezar a aprender.</p>
+            </div>
+            <div class="row g-4 text-center">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-transparent">
+                        <div class="card-body">
+                            <div class="feature-icon bg-primary bg-opacity-10 text-primary mx-auto mb-3">
+                                <i class="bi bi-person-plus-fill"></i>
+                            </div>
+                            <h5 class="fw-bold">1. Crea tu cuenta</h5>
+                            <p class="text-muted small">Regístrate en menos de 1 minuto con tu correo electrónico. Es gratis.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-transparent">
+                        <div class="card-body">
+                            <div class="feature-icon bg-success bg-opacity-10 text-success mx-auto mb-3">
+                                <i class="bi bi-search"></i>
+                            </div>
+                            <h5 class="fw-bold">2. Elige tu curso</h5>
+                            <p class="text-muted small">Navega por nuestro catálogo y haz clic en "Inscribirse" en los temas que te gusten.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 bg-transparent">
+                        <div class="card-body">
+                            <div class="feature-icon bg-warning bg-opacity-10 text-warning mx-auto mb-3">
+                                <i class="bi bi-play-circle-fill"></i>
+                            </div>
+                            <h5 class="fw-bold">3. Empieza a aprender</h5>
+                            <p class="text-muted small">Accede a las lecciones en video y material de lectura al instante.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="cursos" class="py-5 bg-white">
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-end mb-5">
+                <div>
+                    <h2 class="fw-bold mb-1">Cursos Recientes</h2>
+                    <p class="text-muted mb-0">Lo último agregado por nuestros docentes.</p>
+                </div>
+                <a href="modules/estudiante/catalogo.php" class="btn btn-outline-primary rounded-pill">Ver Todos</a>
             </div>
 
             <?php if(empty($cursos)): ?>
                 <div class="alert alert-info text-center">
-                    Aún no hay cursos publicados.
+                    Aún no hay cursos publicados. ¡Vuelve pronto!
                 </div>
             <?php else: ?>
                 <div class="row row-cols-1 row-cols-md-3 g-4">
                     <?php foreach($cursos as $c): ?>
                         <div class="col">
-                            <div class="card h-100 border-0 shadow-sm hover-scale transition-card">
-                                
+                            <div class="card h-100 border-0 shadow-sm hover-scale">
                                 <?php 
-                                    // Ruta relativa desde index.php a la carpeta de uploads
                                     $ruta_imagen = "uploads/cursos/" . $c['imagen_portada'];
-                                    
-                                    // Verificamos si existe la imagen en la carpeta y en la base de datos
                                     if (!empty($c['imagen_portada']) && file_exists($ruta_imagen)): 
                                 ?>
-                                    <img src="<?php echo $ruta_imagen; ?>" class="card-img-top" alt="Portada del curso" style="height: 200px; object-fit: cover;">
+                                    <img src="<?php echo $ruta_imagen; ?>" class="card-img-top" alt="Portada" style="height: 200px; object-fit: cover;">
                                 <?php else: ?>
                                     <div class="bg-light ratio ratio-16x9 d-flex align-items-center justify-content-center text-secondary" style="height: 200px;">
                                         <i class="bi bi-card-image display-1 opacity-25"></i>
                                     </div>
                                 <?php endif; ?>
+
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between mb-2">
-                                        <span class="badge bg-primary bg-opacity-10 text-primary">Nuevo</span>
-                                        <span class="fw-bold text-success">$<?php echo number_format($c['precio'], 0); ?></span>
+                                        <span class="badge bg-primary bg-opacity-10 text-primary">Curso</span>
+                                        <span class="badge bg-success">Gratis</span>
                                     </div>
-                                    <h5 class="card-title fw-bold"><?php echo htmlspecialchars($c['titulo']); ?></h5>
+                                    <h5 class="card-title fw-bold text-truncate"><?php echo htmlspecialchars($c['titulo']); ?></h5>
                                     <p class="card-text text-muted small text-truncate">
                                         <?php echo htmlspecialchars($c['descripcion']); ?>
                                     </p>
@@ -184,8 +216,8 @@ try {
                                     <small class="text-muted d-block mb-3">
                                         <i class="bi bi-person-circle me-1"></i> <?php echo htmlspecialchars($c['docente']); ?>
                                     </small>
-                                    <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-outline-primary w-100 rounded-pill">
-                                        Ver Detalles
+                                    <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-primary w-100 rounded-pill shadow-sm">
+                                        Ver Curso
                                     </a>
                                 </div>
                             </div>
@@ -196,79 +228,21 @@ try {
         </div>
     </section>
 
-    <section class="py-5 bg-white">
+    <section class="py-5 bg-dark text-white text-center">
         <div class="container py-4">
-            <div class="row align-items-center g-5">
-                <div class="col-lg-6">
-                    <div class="ratio ratio-4x3 bg-light rounded-4 shadow-sm d-flex align-items-center justify-content-center">
-                        <i class="bi bi-people display-1 text-muted opacity-25"></i>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <span class="text-uppercase text-warning fw-bold small">Beneficios</span>
-                    <h2 class="fw-bold mb-4">Aprendizaje a tu ritmo</h2>
-                    
-                    <div class="d-flex mb-4">
-                        <div class="p-3 bg-primary bg-opacity-10 text-primary rounded-circle me-3">
-                            <i class="bi bi-laptop fs-4"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Acceso 24/7</h5>
-                            <p class="text-muted small">Estudia desde cualquier dispositivo.</p>
-                        </div>
-                    </div>
-
-                    <div class="d-flex mb-4">
-                        <div class="p-3 bg-success bg-opacity-10 text-success rounded-circle me-3">
-                            <i class="bi bi-award fs-4"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Certificados</h5>
-                            <p class="text-muted small">Valida tus conocimientos al terminar.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <h2 class="fw-bold mb-3">¿Listo para comenzar tu carrera?</h2>
+            <p class="lead mb-4 text-white-50">Únete a cientos de estudiantes que ya están cambiando su futuro.</p>
+            <?php if(!isset($_SESSION['usuario_id'])): ?>
+                <a href="modules/auth/registro.php" class="btn btn-warning btn-lg fw-bold px-5 rounded-pill">
+                    Registrarme Gratis
+                </a>
+            <?php endif; ?>
         </div>
     </section>
 
-    <section id="planes" class="py-5 bg-light">
-        <div class="container py-4">
-            <div class="text-center mb-5">
-                <h2 class="fw-bold">Planes Flexibles</h2>
-                <p class="text-muted">Elige tu suscripción.</p>
-            </div>
-
-            <div class="row row-cols-1 row-cols-md-3 g-4 justify-content-center">
-                <?php foreach ($planes as $plan): ?>
-                    <div class="col">
-                        <div class="card h-100 shadow-sm border-0">
-                            <div class="card-header py-3 text-center bg-white border-bottom-0">
-                                <h4 class="my-0 fw-bold"><?php echo htmlspecialchars($plan['nombre']); ?></h4>
-                            </div>
-                            <div class="card-body text-center d-flex flex-column">
-                                <h1 class="card-title fw-bold">
-                                    $<?php echo number_format($plan['precio'], 0); ?>
-                                    <small class="text-muted fw-light fs-5">/mes</small>
-                                </h1>
-                                <ul class="list-unstyled mt-3 mb-4 flex-grow-1 small text-muted">
-                                    <li class="mb-2"><i class="bi bi-check-lg text-success"></i> Acceso total</li>
-                                    <li class="mb-2"><i class="bi bi-laptop text-primary"></i> <?php echo $plan['limite_sesiones']; ?> Dispositivos</li>
-                                </ul>
-                                <a href="modules/auth/registro.php?plan=<?php echo $plan['id']; ?>" class="w-100 btn btn-lg btn-outline-primary rounded-pill">
-                                    Elegir <?php echo $plan['nombre']; ?>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </section>
-
-    <footer class="bg-dark text-white py-4 text-center">
+    <footer class="bg-white text-center py-4 border-top">
         <div class="container">
-            <p class="mb-0">&copy; <?php echo date('Y'); ?> EduPlatform. Todos los derechos reservados.</p>
+            <p class="mb-0 text-muted small">&copy; <?php echo date('Y'); ?> EduPlatform - Proyecto Educativo</p>
         </div>
     </footer>
 
