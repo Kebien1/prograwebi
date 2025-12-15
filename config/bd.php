@@ -1,7 +1,5 @@
 <?php
-// Tienes que asegurarte que esta palabra coincida con tu carpeta en htdocs
-// Si tu carpeta se llama "prograwebiLocal", pon eso aquí:
-define('BASE_URL', 'http://localhost/PROYECTOLOCALHOST/'); 
+
 
 // ... resto del código de conexión ...
 $servidor = "sql111.infinityfree.com";
