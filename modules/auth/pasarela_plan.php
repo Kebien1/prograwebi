@@ -55,9 +55,7 @@ $_SESSION['temp_registro'] = [
                 <p class="text-muted">Plan seleccionado: <strong><?php echo htmlspecialchars($plan['nombre']); ?></strong>.</p>
             </div>
 
-            <div class="alert alert-warning text-center">
-                <i class="bi bi-shield-lock"></i> <strong>Aviso:</strong> No ingreses datos reales de tarjetas. Este es un entorno de pruebas.
-            </div>
+           
 
             <div class="row g-4">
                 <div class="col-lg-7">
