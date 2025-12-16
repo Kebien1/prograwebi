@@ -3,11 +3,13 @@ require_once '../../config/bd.php';
 require_once '../../includes/security.php';
 verificarRol(2);
 
-$mensaje = "";
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $titulo = trim($_POST['titulo']);
     $desc = trim($_POST['descripcion']);
+    // Nuevos campos
+    $duracion = trim($_POST['duracion']);
+    $nivel = trim($_POST['nivel']);
+    
     $docente_id = $_SESSION['usuario_id'];
     $imagen_nombre = null;
 
@@ -18,8 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if($titulo) {
-        $sql = "INSERT INTO cursos (titulo, descripcion, docente_id, imagen_portada, fecha_creacion) VALUES (?, ?, ?, ?, NOW())";
-        $conexion->prepare($sql)->execute([$titulo, $desc, $docente_id, $imagen_nombre]);
+        // Insert actualizado
+        $sql = "INSERT INTO cursos (titulo, descripcion, duracion, nivel, docente_id, imagen_portada, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?, NOW())";
+        $conexion->prepare($sql)->execute([$titulo, $desc, $duracion, $nivel, $docente_id, $imagen_nombre]);
         header("Location: mis_cursos.php");
         exit;
     }
@@ -36,11 +39,27 @@ require_once '../../includes/header.php';
                 </div>
                 <div class="card-body p-5">
                     <form method="post" enctype="multipart/form-data">
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label class="form-label fw-bold">Título</label>
                             <input type="text" name="titulo" class="form-control" required>
                         </div>
-                        <div class="mb-4">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Duración</label>
+                                <input type="text" name="duracion" class="form-control" placeholder="Ej: 10 horas, 3 semanas">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Nivel</label>
+                                <select name="nivel" class="form-select">
+                                    <option value="Principiante">Principiante</option>
+                                    <option value="Intermedio">Intermedio</option>
+                                    <option value="Avanzado">Avanzado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label fw-bold">Descripción</label>
                             <textarea name="descripcion" class="form-control" rows="5"></textarea>
                         </div>
