@@ -2,8 +2,6 @@
 session_start();
 require_once '../../config/bd.php';
 
-$mensaje = "";
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -14,26 +12,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = $stmt->fetch();
 
     if ($usuario && password_verify($password, $usuario['password'])) {
-        
-        // Verificar si confirmó el correo
         if ($usuario['verificado'] == 0) {
             header("Location: verificar.php?email=" . urlencode($email));
             exit;
         }
 
-        // Login OK - Guardamos sesión simple
         $_SESSION['usuario_id'] = $usuario['id'];
         $_SESSION['nombre'] = $usuario['nombre_completo'];
         $_SESSION['rol_id'] = $usuario['rol_id'];
 
-        // Redirigir
-        if ($usuario['rol_id'] == 1) header("Location: ../admin/dashboard.php");
-        elseif ($usuario['rol_id'] == 2) header("Location: ../docente/dashboard.php");
-        else header("Location: ../estudiante/dashboard.php");
+        // Lógica de redirección simplificada
+        if ($usuario['rol_id'] == 1) {
+            // El Admin (1) y el antiguo Docente (2) ahora van al mismo sitio
+            header("Location: ../admin/dashboard.php");
+        } else {
+            // Todos los demás (Estudiantes)
+            header("Location: ../estudiante/dashboard.php");
+        }
         exit;
-
-    } else {
-        $mensaje = "<div class='alert alert-danger'>Datos incorrectos.</div>";
     }
 }
 ?>
