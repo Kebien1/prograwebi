@@ -4,9 +4,16 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // DEFINIR RUTA BASE
-// Ajusta esto si tu carpeta se llama diferente en htdocs.
-// Si tu proyecto está en http://localhost/prograwebi, déjalo así.
-$base_url = 'http://localhost/prograwebi'; 
+// Primero intentamos usar la constante definida en config/bd.php
+if (defined('BASE_URL')) {
+    $base_url = BASE_URL;
+} else {
+    // Si no está definida, usamos una detección automática o fallback
+    $base_url = 'https://prograweb1.infinityfreeapp.com'; 
+}
+
+// Asegurarnos de que no tenga una barra al final para evitar errores de doble barra //
+$base_url = rtrim($base_url, '/');
 ?>
 <!doctype html>
 <html lang="es">
