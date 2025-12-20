@@ -1,4 +1,5 @@
 <?php
+// modules/estudiante/aula.php
 session_start();
 require_once '../../config/bd.php';
 
@@ -41,13 +42,13 @@ $lecciones = $stmtLecciones->fetchAll();
 
 // 4. Determinar lección actual
 $clase_actual = null;
-$recursos_clase = []; // Array para guardar los archivos
+$recursos_clase = []; 
 
 if (!empty($lecciones)) {
     if (!isset($lecciones[$indice_actual])) { $indice_actual = 0; }
     $clase_actual = $lecciones[$indice_actual];
 
-    // 5. NUEVO: Obtener recursos específicos de esta lección
+    // 5. Obtener recursos específicos de esta lección
     $stmtRecursos = $conexion->prepare("SELECT * FROM materiales WHERE leccion_id = ? ORDER BY id DESC");
     $stmtRecursos->execute([$clase_actual['id']]);
     $recursos_clase = $stmtRecursos->fetchAll();
@@ -120,7 +121,7 @@ if (!empty($lecciones)) {
         /* Estilo para los recursos */
         .resource-card {
             background-color: #1f212d;
-            border: 1px solid #2d2f40;
+            border: 1px solid #2d2f40; 
             border-radius: 8px;
             transition: 0.2s;
         }
@@ -180,13 +181,13 @@ if (!empty($lecciones)) {
                         <div class="row g-3 mb-5">
                             <?php foreach($recursos_clase as $rec): ?>
                                 <div class="col-md-6">
-                                    <a href="../../uploads/materiales/<?php echo $rec['archivo_path']; ?>" target="_blank" class="text-decoration-none">
+                                    <a href="../../uploads/materiales/<?php echo $rec['archivo']; ?>" target="_blank" class="text-decoration-none">
                                         <div class="resource-card p-3 d-flex align-items-center">
                                             <div class="bg-primary bg-opacity-10 p-2 rounded me-3 text-primary">
                                                 <i class="bi bi-file-earmark-arrow-down-fill fs-4"></i>
                                             </div>
                                             <div>
-                                                <h6 class="mb-0 text-white fw-bold"><?php echo htmlspecialchars($rec['nombre']); ?></h6>
+                                                <h6 class="mb-0 text-white fw-bold"><?php echo htmlspecialchars($rec['titulo']); ?></h6>
                                                 <small class="text-muted">Clic para descargar</small>
                                             </div>
                                         </div>
