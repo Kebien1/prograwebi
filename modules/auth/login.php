@@ -18,45 +18,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = $stmt->fetch();
 
     if ($usuario && password_verify($password, $usuario['password'])) {
+        // Verificar si la cuenta está confirmada
         if ($usuario['verificado'] == 0) {
             header("Location: verificar.php?email=" . urlencode($email));
             exit;
         }
 
-        // --- CONTROL DE SESIONES INTELIGENTE ---
+        // --- INICIO: CONTROL DE SESIONES (KICK-OUT) ---
         
-        // A. Obtener sesiones actuales
+        // A. Buscar sesiones activas de este usuario (ordenadas por la más vieja primero)
         $stmtSesiones = $conexion->prepare("SELECT session_id FROM sesiones_activas WHERE usuario_id = ? ORDER BY ultimo_acceso ASC");
         $stmtSesiones->execute([$usuario['id']]);
         $sesionesActivas = $stmtSesiones->fetchAll(PDO::FETCH_COLUMN);
         
         $limite = $usuario['limite_sesiones'];
-        $sesionesActuales = count($sesionesActivas);
+        $actuales = count($sesionesActivas);
 
-        // B. Si alcanzamos o superamos el límite, borrar las más antiguas
-        if ($sesionesActuales >= $limite) {
-            $aBorrar = ($sesionesActuales - $limite) + 1;
+        // B. Si el usuario ya llenó sus cupos, borramos la sesión más vieja para hacer espacio
+        if ($actuales >= $limite) {
+            // Calculamos cuántas borrar (generalmente 1, pero por seguridad calculamos la diferencia)
+            $aBorrar = ($actuales - $limite) + 1;
+            
             for ($i = 0; $i < $aBorrar; $i++) {
-                $sid_borrar = $sesionesActivas[$i];
-                $conexion->prepare("DELETE FROM sesiones_activas WHERE session_id = ?")->execute([$sid_borrar]);
+                // $sesionesActivas[0] siempre es la más vieja gracias al ORDER BY ASC
+                $sid_viejo = $sesionesActivas[$i]; 
+                $conexion->prepare("DELETE FROM sesiones_activas WHERE session_id = ?")->execute([$sid_viejo]);
             }
         }
+        // --- FIN: CONTROL DE SESIONES ---
 
-        // C. Registrar NUEVA sesión
+        // C. Crear la NUEVA sesión
         session_regenerate_id(true); 
         $_SESSION['usuario_id'] = $usuario['id'];
         $_SESSION['nombre'] = $usuario['nombre_completo'];
         $_SESSION['rol_id'] = $usuario['rol_id'];
         $_SESSION['plan_id'] = $usuario['plan_id'];
 
+        // D. Guardar la nueva sesión en la base de datos
         $new_sid = session_id();
         $ip = $_SERVER['REMOTE_ADDR'];
-        $ua = $_SERVER['HTTP_USER_AGENT'];
+        $ua = $_SERVER['HTTP_USER_AGENT']; // Datos del navegador
 
-        $sqlInsertSession = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) VALUES (?, ?, ?, ?, NOW())";
-        $conexion->prepare($sqlInsertSession)->execute([$new_sid, $usuario['id'], $ip, $ua]);
+        $sqlInsert = "INSERT INTO sesiones_activas (session_id, usuario_id, ip_address, user_agent, ultimo_acceso) VALUES (?, ?, ?, ?, NOW())";
+        $conexion->prepare($sqlInsert)->execute([$new_sid, $usuario['id'], $ip, $ua]);
 
-        // --- REDIRECCIÓN ---
+        // Redirección según rol
         if ($usuario['rol_id'] == 1) {
             header("Location: ../admin/dashboard.php");
         } else {
@@ -77,52 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { 
-            background: #0f0f1a; 
-            color: #e0e0e0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        .card { 
-            background: #1a1a2e; 
-            border: 1px solid #2a2a40; 
-            color: white; 
-            border-radius: 12px;
-        }
-        .form-control { 
-            background: #0f0f1a; 
-            border: 1px solid #2a2a40; 
-            color: white; 
-            padding: 12px;
-        }
-        .form-control:focus { 
-            background: #151525; 
-            color: white; 
-            border-color: #0d6efd; 
-            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15); 
-        }
-        .btn-primary {
-            padding: 10px;
-            font-weight: 600;
-        }
-        .link-custom {
-            color: #6c757d;
-            transition: 0.3s;
-        }
-        .link-custom:hover {
-            color: #0d6efd;
-        }
+        body { background: #0f0f1a; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { background: #1a1a2e; border: 1px solid #2a2a40; color: white; border-radius: 12px; }
+        .form-control { background: #0f0f1a; border: 1px solid #2a2a40; color: white; padding: 12px; }
+        .form-control:focus { background: #151525; color: white; border-color: #0d6efd; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15); }
+        .btn-primary { padding: 10px; font-weight: 600; }
+        .link-custom { color: #6c757d; transition: 0.3s; }
+        .link-custom:hover { color: #0d6efd; }
     </style>
 </head>
 <body class="d-flex align-items-center justify-content-center min-vh-100 p-3">
-    
     <div class="card shadow-lg p-4 w-100" style="max-width: 400px;">
         <div class="text-center mb-4">
             <h1 class="h3 fw-bold mb-1 text-white">¡Bienvenido!</h1>
             <p class="text-muted small">Ingresa a tu cuenta para continuar</p>
         </div>
-
         <?php echo $mensaje; ?>
-
         <form method="post">
             <div class="mb-3">
                 <label class="form-label text-secondary small fw-bold">CORREO ELECTRÓNICO</label>
@@ -131,7 +107,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="email" name="email" class="form-control" placeholder="nombre@correo.com" required>
                 </div>
             </div>
-            
             <div class="mb-4">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <label class="form-label text-secondary small fw-bold mb-0">CONTRASEÑA</label>
@@ -142,24 +117,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="password" name="password" class="form-control" placeholder="••••••••" required>
                 </div>
             </div>
-
             <div class="d-grid mb-4">
                 <button type="submit" class="btn btn-primary rounded-pill">Iniciar Sesión</button>
             </div>
         </form>
-
         <div class="text-center pt-3 border-top border-secondary border-opacity-25">
             <p class="mb-2 text-muted small">¿Aún no tienes una cuenta?</p>
-            <a href="registro.php" class="btn btn-outline-light w-100 btn-sm rounded-pill fw-bold">
-                Crear cuenta gratis
-            </a>
+            <a href="registro.php" class="btn btn-outline-light w-100 btn-sm rounded-pill fw-bold">Crear cuenta gratis</a>
             <div class="mt-3">
-                <a href="../../index.php" class="link-custom text-decoration-none small">
-                    <i class="bi bi-arrow-left"></i> Volver al inicio
-                </a>
+                <a href="../../index.php" class="link-custom text-decoration-none small"><i class="bi bi-arrow-left"></i> Volver al inicio</a>
             </div>
         </div>
     </div>
-
 </body>
 </html>
