@@ -1,9 +1,8 @@
 <?php
-// modules/estudiante/aula.php
 session_start();
 require_once '../../config/bd.php';
 
-// 1. Seguridad: Verificar Sesión y Rol (Admin y Estudiante)
+// 1. Seguridad básica
 if (!isset($_SESSION['usuario_id']) || !in_array($_SESSION['rol_id'], [1, 3])) {
     header("Location: ../../index.php");
     exit;
@@ -14,10 +13,7 @@ $rol_id = $_SESSION['rol_id'];
 $id_curso = $_GET['id'] ?? 0;
 $indice_actual = isset($_GET['indice']) ? (int)$_GET['indice'] : 0;
 
-if (!$id_curso) {
-    header("Location: dashboard.php");
-    exit;
-}
+if (!$id_curso) { header("Location: dashboard.php"); exit; }
 
 // 2. Verificar compra (Solo si es estudiante)
 if ($rol_id == 3) {
@@ -29,18 +25,18 @@ if ($rol_id == 3) {
     }
 }
 
-// 3. Obtener Datos del Curso y Lecciones
+// 3. Obtener Datos del Curso
 $stmt = $conexion->prepare("SELECT * FROM cursos WHERE id = ?");
 $stmt->execute([$id_curso]);
 $curso = $stmt->fetch();
-
 if (!$curso) die("El curso no existe.");
 
+// 4. Obtener Lecciones
 $stmtLecciones = $conexion->prepare("SELECT * FROM lecciones WHERE curso_id = ? ORDER BY orden ASC, id ASC");
 $stmtLecciones->execute([$id_curso]);
 $lecciones = $stmtLecciones->fetchAll();
 
-// 4. Determinar lección actual
+// 5. Determinar lección actual
 $clase_actual = null;
 $recursos_clase = []; 
 
@@ -48,147 +44,106 @@ if (!empty($lecciones)) {
     if (!isset($lecciones[$indice_actual])) { $indice_actual = 0; }
     $clase_actual = $lecciones[$indice_actual];
 
-    // 5. Obtener recursos específicos de esta lección
+    // Obtener recursos de la lección
     $stmtRecursos = $conexion->prepare("SELECT * FROM materiales WHERE leccion_id = ? ORDER BY id DESC");
     $stmtRecursos->execute([$clase_actual['id']]);
     $recursos_clase = $stmtRecursos->fetchAll();
 }
 ?>
 <!doctype html>
-<html lang="es" data-bs-theme="dark">
+<html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($curso['titulo']); ?> - Aula Virtual</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
     <style>
-        body { 
-            background-color: #0f111a; 
-            color: #e0e0e0; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-        }
+        body { height: 100vh; overflow: hidden; background-color: #f8f9fa; }
         
-        .aula-navbar { 
-            background-color: #1a1c29; 
-            border-bottom: 1px solid #2d2f40; 
-            height: 60px; 
-            display: flex; 
-            align-items: center; 
-            padding: 0 20px; 
-            flex-shrink: 0;
-        }
+        /* Navbar superior del aula */
+        .aula-header { height: 60px; background: white; border-bottom: 1px solid #dee2e6; z-index: 10; }
         
-        .main-layout { flex: 1; display: flex; overflow: hidden; }
-        .player-area { flex: 1; background: #000; display: flex; flex-direction: column; overflow-y: auto; }
+        /* Contenedor principal flex */
+        .aula-container { display: flex; height: calc(100vh - 60px); }
+        
+        /* Área del reproductor (Izquierda/Centro) */
+        .player-area { flex: 1; overflow-y: auto; padding: 20px; }
+        
+        /* Barra lateral de lecciones (Derecha) */
+        .sidebar-lecciones { width: 350px; background: white; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; }
+        .lista-scroll { flex: 1; overflow-y: auto; }
 
-        .video-wrapper-limit {
-            width: 100%;
-            max-width: 1100px; 
-            margin: 0 auto;    
-            background: #000;
-        }
-        
-        .iframe-container {
-            position: relative;
-            width: 100%;
-            padding-top: 56.25%; 
-        }
-        
-        .iframe-container iframe { 
-            position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%; border: none; 
-        }
-        
-        .sidebar-area { 
-            width: 350px; 
-            background-color: #161821; 
-            border-left: 1px solid #2d2f40; 
-            display: flex; flex-direction: column; flex-shrink: 0;
-        }
-        .sidebar-header { padding: 15px; border-bottom: 1px solid #2d2f40; background: #1a1c29; }
-        .sidebar-content { flex: 1; overflow-y: auto; }
-        
-        .lesson-item { 
-            display: flex; align-items: center; padding: 15px; 
-            border-bottom: 1px solid #222533; text-decoration: none; color: #a0a0a0; transition: 0.2s; 
-        }
-        .lesson-item:hover { background-color: #1f2130; color: #fff; }
-        .lesson-item.active { background-color: #23263a; color: #3b82f6; border-left: 4px solid #3b82f6; }
+        /* Aspect Ratio del Video */
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-        /* Estilo para los recursos */
-        .resource-card {
-            background-color: #1f212d;
-            border: 1px solid #2d2f40; 
-            border-radius: 8px;
-            transition: 0.2s;
-        }
-        .resource-card:hover {
-            background-color: #2a2d3d;
-            border-color: #3b82f6;
-        }
-        
+        /* Responsivo: En móviles la barra va abajo */
         @media (max-width: 992px) {
-            .main-layout { flex-direction: column; overflow-y: auto; }
             body { height: auto; overflow: auto; }
-            .sidebar-area { width: 100%; height: auto; border-left: none; border-top: 1px solid #2d2f40; }
-            .player-area { overflow: visible; height: auto; }
+            .aula-container { flex-direction: column; height: auto; }
+            .sidebar-lecciones { width: 100%; height: auto; border-left: 0; border-top: 1px solid #dee2e6; }
+            .player-area { padding: 15px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="aula-navbar justify-content-between">
-        <div class="d-flex align-items-center">
-            <a href="mis_compras.php" class="btn btn-outline-secondary border-0 text-white me-2"><i class="bi bi-arrow-left"></i></a>
-            <span class="fw-bold text-truncate" style="max-width: 250px;"><?php echo htmlspecialchars($curso['titulo']); ?></span>
+    <header class="aula-header d-flex align-items-center justify-content-between px-3 px-md-4 shadow-sm">
+        <div class="d-flex align-items-center gap-3">
+            <a href="dashboard.php" class="btn btn-outline-secondary btn-sm rounded-circle">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h6 class="mb-0 fw-bold text-dark text-truncate" style="max-width: 300px;">
+                <?php echo htmlspecialchars($curso['titulo']); ?>
+            </h6>
         </div>
         <div>
-            <?php if(!empty($lecciones)): ?>
-                <span class="badge bg-primary bg-opacity-25 text-primary border border-primary">
-                    <?php echo $indice_actual + 1; ?> / <?php echo count($lecciones); ?>
-                </span>
-            <?php endif; ?>
+            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3">
+                Progreso: <?php echo $indice_actual + 1; ?> / <?php echo count($lecciones); ?>
+            </span>
         </div>
-    </div>
+    </header>
 
-    <div class="main-layout">
+    <div class="aula-container">
         
-        <div class="player-area">
-            <?php if($clase_actual): ?>
+        <main class="player-area bg-light">
+            <div class="container-fluid" style="max-width: 1000px;">
                 
-                <div class="video-wrapper-limit">
-                    <div class="iframe-container">
+                <?php if($clase_actual): ?>
+                    <div class="video-container mb-4">
                         <iframe src="<?php echo htmlspecialchars($clase_actual['video_url']); ?>" allowfullscreen></iframe>
                     </div>
-                </div>
 
-                <div class="p-4 container-fluid" style="max-width: 1100px;">
-                    <div class="d-flex justify-content-between align-items-start mb-3">
-                        <h2 class="fw-bold text-white mb-0"><?php echo htmlspecialchars($clase_actual['titulo']); ?></h2>
+                    <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
+                        <h2 class="h3 fw-bold text-dark mb-0"><?php echo htmlspecialchars($clase_actual['titulo']); ?></h2>
                     </div>
-                    
-                    <div class="card bg-dark border-secondary border-opacity-25 mb-4">
-                        <div class="card-body text-secondary">
-                            <?php echo nl2br(htmlspecialchars($clase_actual['descripcion'])); ?>
+
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold text-secondary text-uppercase small mb-3">Descripción de la clase</h6>
+                            <p class="card-text text-secondary">
+                                <?php echo nl2br(htmlspecialchars($clase_actual['descripcion'])); ?>
+                            </p>
                         </div>
                     </div>
 
                     <?php if(!empty($recursos_clase)): ?>
-                        <h5 class="fw-bold text-white mb-3"><i class="bi bi-paperclip"></i> Recursos de la clase</h5>
+                        <h5 class="fw-bold text-dark mb-3">Recursos Disponibles</h5>
                         <div class="row g-3 mb-5">
                             <?php foreach($recursos_clase as $rec): ?>
-                                <div class="col-md-6">
+                                <div class="col-sm-6">
                                     <a href="../../uploads/materiales/<?php echo $rec['archivo']; ?>" target="_blank" class="text-decoration-none">
-                                        <div class="resource-card p-3 d-flex align-items-center">
-                                            <div class="bg-primary bg-opacity-10 p-2 rounded me-3 text-primary">
-                                                <i class="bi bi-file-earmark-arrow-down-fill fs-4"></i>
-                                            </div>
-                                            <div>
-                                                <h6 class="mb-0 text-white fw-bold"><?php echo htmlspecialchars($rec['titulo']); ?></h6>
-                                                <small class="text-muted">Clic para descargar</small>
+                                        <div class="card h-100 border-0 shadow-sm hover-bg-light">
+                                            <div class="card-body d-flex align-items-center gap-3">
+                                                <div class="bg-warning bg-opacity-10 p-2 rounded text-warning">
+                                                    <i class="bi bi-file-earmark-arrow-down fs-4"></i>
+                                                </div>
+                                                <div class="text-truncate">
+                                                    <h6 class="mb-0 text-dark fw-bold text-truncate"><?php echo htmlspecialchars($rec['titulo']); ?></h6>
+                                                    <small class="text-muted">Descargar archivo</small>
+                                                </div>
                                             </div>
                                         </div>
                                     </a>
@@ -196,60 +151,57 @@ if (!empty($lecciones)) {
                             <?php endforeach; ?>
                         </div>
                     <?php endif; ?>
-                    <div class="d-flex justify-content-between mb-5 mt-4">
+
+                    <div class="d-flex justify-content-between my-5">
                         <?php if($indice_actual > 0): ?>
-                            <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $indice_actual - 1; ?>" class="btn btn-outline-secondary px-4">
-                                <i class="bi bi-chevron-left"></i> Anterior
+                            <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $indice_actual - 1; ?>" class="btn btn-outline-secondary px-4 rounded-pill">
+                                <i class="bi bi-arrow-left"></i> Anterior
                             </a>
                         <?php else: ?>
                             <div></div>
                         <?php endif; ?>
-                        
+
                         <?php if($indice_actual < count($lecciones) - 1): ?>
-                            <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $indice_actual + 1; ?>" class="btn btn-primary px-4">
-                                Siguiente <i class="bi bi-chevron-right"></i>
+                            <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $indice_actual + 1; ?>" class="btn btn-primary px-4 rounded-pill shadow-sm">
+                                Siguiente Lección <i class="bi bi-arrow-right"></i>
                             </a>
                         <?php endif; ?>
                     </div>
-                </div>
 
-            <?php else: ?>
-                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-5">
-                    <i class="bi bi-cone-striped display-1 text-warning mb-4"></i>
-                    <h3 class="fw-bold text-white">En construcción</h3>
-                    <p class="text-muted">El docente aún no ha subido lecciones.</p>
-                    <a href="mis_compras.php" class="btn btn-secondary mt-3">Volver</a>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <div class="sidebar-area">
-            <div class="sidebar-header d-flex align-items-center justify-content-between">
-                <h6 class="mb-0 fw-bold text-white"><i class="bi bi-collection-play"></i> Contenido</h6>
-            </div>
-            <div class="sidebar-content">
-                <?php if(!empty($lecciones)): ?>
-                    <?php foreach($lecciones as $index => $leccion): ?>
-                        <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $index; ?>" 
-                           class="lesson-item <?php echo ($index == $indice_actual) ? 'active' : ''; ?>">
-                            <div class="me-3 fs-5">
-                                <?php if($index == $indice_actual): ?>
-                                    <i class="bi bi-play-circle-fill"></i>
-                                <?php else: ?>
-                                    <i class="bi bi-play-circle"></i>
-                                <?php endif; ?>
-                            </div>
-                            <div>
-                                <div class="small fw-bold lh-sm mb-1"><?php echo htmlspecialchars($leccion['titulo']); ?></div>
-                                <div class="text-muted" style="font-size: 0.75rem;">Lección <?php echo $index + 1; ?></div>
-                            </div>
-                        </a>
-                    <?php endforeach; ?>
                 <?php else: ?>
-                    <div class="p-4 text-center text-muted small">Sin contenido.</div>
+                    <div class="text-center py-5">
+                        <i class="bi bi-cone-striped display-1 text-muted opacity-25"></i>
+                        <h3 class="mt-3 text-dark">Contenido no disponible</h3>
+                        <p class="text-muted">El instructor aún no ha publicado lecciones en este curso.</p>
+                    </div>
                 <?php endif; ?>
             </div>
-        </div>
+        </main>
+
+        <aside class="sidebar-lecciones">
+            <div class="p-3 bg-light border-bottom">
+                <h6 class="mb-0 fw-bold text-secondary"><i class="bi bi-list-ul"></i> Contenido del Curso</h6>
+            </div>
+            
+            <div class="lista-scroll list-group list-group-flush">
+                <?php foreach($lecciones as $index => $leccion): ?>
+                    <?php $isActive = ($index == $indice_actual); ?>
+                    <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $index; ?>" 
+                       class="list-group-item list-group-item-action py-3 <?php echo $isActive ? 'active border-start border-4 border-primary' : ''; ?>" 
+                       <?php echo $isActive ? 'aria-current="true"' : ''; ?>>
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <i class="bi <?php echo $isActive ? 'bi-play-circle-fill' : 'bi-play-circle'; ?> fs-5"></i>
+                                <div>
+                                    <small class="text-uppercase fw-bold" style="font-size: 0.7rem; opacity: 0.8;">Lección <?php echo $index + 1; ?></small>
+                                    <h6 class="mb-0 fw-semibold" style="font-size: 0.95rem;"><?php echo htmlspecialchars($leccion['titulo']); ?></h6>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        </aside>
 
     </div>
 
