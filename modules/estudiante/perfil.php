@@ -1,160 +1,164 @@
 <?php
+// modules/estudiante/perfil.php
 require_once '../../config/bd.php';
 require_once '../../includes/security.php';
-verificarRol(3); // Solo estudiantes
 require_once '../../includes/header.php';
 
-$uid = $_SESSION['usuario_id'];
+$id_usuario = $_SESSION['usuario_id'];
 $mensaje = "";
 $tipo_mensaje = "";
 
-// PROCESAR FORMULARIO
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// --- LÓGICA 1: ACTUALIZAR DATOS PERSONALES ---
+if (isset($_POST['actualizar_datos'])) {
+    $nuevo_nombre = trim($_POST['nombre']);
     
-    // 1. ACTUALIZAR FOTO
-    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === 0) {
-        $permitidos = ['image/jpeg', 'image/png', 'image/jpg'];
-        $nombre_archivo = $_FILES['foto']['name'];
-        $tipo_archivo = $_FILES['foto']['type'];
-        $tmp_nombre = $_FILES['foto']['tmp_name'];
+    if (!empty($nuevo_nombre)) {
+        $sql = "UPDATE usuarios SET nombre = ? WHERE id = ?";
+        $conexion->prepare($sql)->execute([$nuevo_nombre, $id_usuario]);
+        $_SESSION['usuario_nombre'] = $nuevo_nombre; // Actualizar sesión
         
-        if (in_array($tipo_archivo, $permitidos)) {
-            // Crear carpeta si no existe
-            $directorio = "../../uploads/perfiles/";
-            if (!file_exists($directorio)) {
-                mkdir($directorio, 0777, true);
-            }
-            
-            // Nombre único para evitar duplicados
-            $nuevo_nombre = "user_" . $uid . "_" . time() . ".jpg";
-            $ruta_final = $directorio . $nuevo_nombre;
-            
-            if (move_uploaded_file($tmp_nombre, $ruta_final)) {
-                $sqlFoto = "UPDATE usuarios SET foto_perfil = ? WHERE id = ?";
-                $conexion->prepare($sqlFoto)->execute([$nuevo_nombre, $uid]);
-                $mensaje = "Foto actualizada con éxito.";
-                $tipo_mensaje = "success";
-            }
-        } else {
-            $mensaje = "Formato de imagen no válido (solo JPG/PNG).";
-            $tipo_mensaje = "danger";
-        }
-    }
-
-    // 2. ACTUALIZAR NOMBRE Y PASSWORD
-    if (isset($_POST['nombre'])) {
-        $nuevo_nombre = trim($_POST['nombre']);
-        $pass_actual = $_POST['pass_actual'];
-        $pass_nueva = $_POST['pass_nueva'];
-        
-        if (!empty($nuevo_nombre)) {
-            // Verificar contraseña actual para permitir cambios
-            $stmt = $conexion->prepare("SELECT password FROM usuarios WHERE id = ?");
-            $stmt->execute([$uid]);
-            $user = $stmt->fetch();
-            
-            if (password_verify($pass_actual, $user['password'])) {
-                // Si puso nueva contraseña, la actualizamos
-                if (!empty($pass_nueva)) {
-                    if (strlen($pass_nueva) >= 6) {
-                        $hash = password_hash($pass_nueva, PASSWORD_BCRYPT);
-                        $sqlUpdate = "UPDATE usuarios SET nombre_completo = ?, password = ? WHERE id = ?";
-                        $conexion->prepare($sqlUpdate)->execute([$nuevo_nombre, $hash, $uid]);
-                        $mensaje = "Datos y contraseña actualizados.";
-                    } else {
-                        $mensaje = "La nueva contraseña debe tener al menos 6 caracteres.";
-                        $tipo_mensaje = "warning";
-                    }
-                } else {
-                    // Solo actualizamos el nombre
-                    $sqlUpdate = "UPDATE usuarios SET nombre_completo = ? WHERE id = ?";
-                    $conexion->prepare($sqlUpdate)->execute([$nuevo_nombre, $uid]);
-                    $mensaje = "Nombre actualizado correctamente.";
-                }
-                
-                // Actualizar variable de sesión
-                $_SESSION['nombre'] = $nuevo_nombre;
-                $tipo_mensaje = "success";
-                
-            } else {
-                $mensaje = "La contraseña actual es incorrecta. No se guardaron cambios.";
-                $tipo_mensaje = "danger";
-            }
-        }
+        $mensaje = "Datos actualizados correctamente.";
+        $tipo_mensaje = "success";
+    } else {
+        $mensaje = "El nombre no puede estar vacío.";
+        $tipo_mensaje = "danger";
     }
 }
 
-// OBTENER DATOS ACTUALES
-$stmt = $conexion->prepare("SELECT * FROM usuarios WHERE id = ?");
-$stmt->execute([$uid]);
-$u = $stmt->fetch();
+// --- LÓGICA 2: CAMBIAR CONTRASEÑA ---
+if (isset($_POST['cambiar_pass'])) {
+    $pass_actual = $_POST['pass_actual'];
+    $pass_nueva = $_POST['pass_nueva'];
+    $pass_confirmar = $_POST['pass_confirmar'];
 
-// Definir imagen a mostrar
-$foto_url = $u['foto_perfil'] 
-    ? "../../uploads/perfiles/" . $u['foto_perfil'] 
-    : "https://ui-avatars.com/api/?name=" . urlencode($u['nombre_completo']) . "&background=random";
+    // Buscar contraseña actual
+    $stmt = $conexion->prepare("SELECT password FROM usuarios WHERE id = ?");
+    $stmt->execute([$id_usuario]);
+    $user_pass = $stmt->fetchColumn();
+
+    if (password_verify($pass_actual, $user_pass)) {
+        if ($pass_nueva === $pass_confirmar) {
+            if (strlen($pass_nueva) >= 6) {
+                $hash = password_hash($pass_nueva, PASSWORD_DEFAULT);
+                $conexion->prepare("UPDATE usuarios SET password = ? WHERE id = ?")->execute([$hash, $id_usuario]);
+                $mensaje = "Contraseña cambiada con éxito.";
+                $tipo_mensaje = "success";
+            } else {
+                $mensaje = "La nueva contraseña debe tener al menos 6 caracteres.";
+                $tipo_mensaje = "warning";
+            }
+        } else {
+            $mensaje = "las nuevas contraseñas no coinciden.";
+            $tipo_mensaje = "danger";
+        }
+    } else {
+        $mensaje = "La contraseña actual es incorrecta.";
+        $tipo_mensaje = "danger";
+    }
+}
+
+// --- OBTENER DATOS DEL USUARIO Y SU PLAN ---
+$sqlUser = "SELECT u.*, p.nombre as nombre_plan, p.precio 
+            FROM usuarios u 
+            LEFT JOIN planes p ON u.plan_id = p.id 
+            WHERE u.id = ?";
+$stmt = $conexion->prepare($sqlUser);
+$stmt->execute([$id_usuario]);
+$usuario = $stmt->fetch();
+
+// Generar avatar con iniciales (API externa simple)
+$avatar_url = "https://ui-avatars.com/api/?name=" . urlencode($usuario['nombre']) . "&background=0D6EFD&color=fff&size=128";
 ?>
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            
-            <?php if($mensaje): ?>
-                <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show" role="alert">
-                    <?php echo $mensaje; ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
+<div class="container mt-5 mb-5">
+    
+    <?php if($mensaje): ?>
+        <div class="alert alert-<?php echo $tipo_mensaje; ?> alert-dismissible fade show shadow-sm" role="alert">
+            <?php if($tipo_mensaje == 'success') echo '<i class="bi bi-check-circle-fill me-2"></i>'; ?>
+            <?php if($tipo_mensaje == 'danger') echo '<i class="bi bi-exclamation-triangle-fill me-2"></i>'; ?>
+            <?php echo $mensaje; ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
 
-            <div class="card shadow-sm border-0 overflow-hidden">
-                <div class="card-header bg-primary text-white py-4 text-center border-0">
-                    <div class="position-relative d-inline-block">
-                        <img src="<?php echo htmlspecialchars($foto_url); ?>" 
-                             class="rounded-circle border border-4 border-white shadow-sm" 
-                             width="120" height="120" style="object-fit: cover;">
-                        <label for="inputFoto" class="position-absolute bottom-0 end-0 bg-dark text-white rounded-circle p-2 shadow cursor-pointer" style="cursor: pointer;" title="Cambiar foto">
-                            <i class="bi bi-camera-fill"></i>
-                        </label>
+    <div class="row gx-5">
+        
+        <div class="col-lg-4 mb-4">
+            <div class="card border-0 shadow-sm text-center h-100" style="background: #1f212d; color: white;">
+                <div class="card-body py-5">
+                    <img src="<?php echo $avatar_url; ?>" class="rounded-circle mb-3 border border-4 border-primary shadow" alt="Avatar">
+                    <h4 class="fw-bold mb-1"><?php echo htmlspecialchars($usuario['nombre']); ?></h4>
+                    <p class="text-muted small mb-4"><?php echo htmlspecialchars($usuario['email']); ?></p>
+
+                    <div class="d-grid gap-2 mb-4">
+                        <div class="p-3 rounded bg-dark border border-secondary border-opacity-25">
+                            <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Plan Actual</small>
+                            <h5 class="text-primary mb-0 fw-bold">
+                                <i class="bi bi-star-fill text-warning me-1"></i> 
+                                <?php echo htmlspecialchars($usuario['nombre_plan'] ?? 'Básico'); ?>
+                            </h5>
+                        </div>
                     </div>
-                    <h3 class="mt-3 fw-bold"><?php echo htmlspecialchars($u['nombre_completo']); ?></h3>
-                    <p class="mb-0 opacity-75"><?php echo htmlspecialchars($u['email']); ?></p>
+                    
+                    <div class="text-start px-3">
+                        <small class="text-muted d-block mb-2"><i class="bi bi-calendar3 me-2"></i> Miembro desde: <span class="text-white"><?php echo isset($usuario['fecha_registro']) ? date('d/m/Y', strtotime($usuario['fecha_registro'])) : 'Reciente'; ?></span></small>
+                        <small class="text-muted d-block"><i class="bi bi-geo-alt me-2"></i> Estado: <span class="text-success">Activo</span></small>
+                    </div>
                 </div>
+            </div>
+        </div>
 
-                <div class="card-body p-4">
-                    <form method="post" enctype="multipart/form-data">
-                        <input type="file" name="foto" id="inputFoto" class="d-none" onchange="this.form.submit()">
-
-                        <h5 class="fw-bold mb-3 text-secondary">Editar Información</h5>
-                        
+        <div class="col-lg-8">
+            
+            <div class="card border-0 shadow-sm mb-4" style="background: #ffffff;">
+                <div class="card-header bg-white border-0 py-3">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-person-lines-fill text-primary me-2"></i> Información Personal</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Nombre Completo</label>
-                            <input type="text" name="nombre" class="form-control" value="<?php echo htmlspecialchars($u['nombre_completo']); ?>" required>
+                            <label class="form-label text-secondary small fw-bold">Nombre Completo</label>
+                            <input type="text" name="nombre" class="form-control" value="<?php echo htmlspecialchars($usuario['nombre']); ?>" required>
                         </div>
-
-                        <hr class="my-4">
-
-                        <h5 class="fw-bold mb-3 text-secondary">Seguridad</h5>
-                        <div class="alert alert-light border small text-muted">
-                            <i class="bi bi-info-circle"></i> Para guardar cualquier cambio (nombre o nueva contraseña), debes ingresar tu contraseña actual por seguridad.
+                        <div class="mb-3">
+                            <label class="form-label text-secondary small fw-bold">Correo Electrónico</label>
+                            <input type="email" class="form-control bg-light" value="<?php echo htmlspecialchars($usuario['email']); ?>" disabled readonly>
+                            <div class="form-text">Por seguridad, el correo no se puede cambiar directamente. Contacta a soporte.</div>
                         </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold">Nueva Contraseña (Opcional)</label>
-                                <input type="password" name="pass_nueva" class="form-control" placeholder="Dejar en blanco para no cambiar">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label fw-bold text-danger">Contraseña Actual (Requerido)</label>
-                                <input type="password" name="pass_actual" class="form-control" required>
-                            </div>
-                        </div>
-
-                        <div class="d-grid mt-3">
-                            <button type="submit" class="btn btn-primary btn-lg">Guardar Cambios</button>
+                        <div class="text-end">
+                            <button type="submit" name="actualizar_datos" class="btn btn-primary px-4 rounded-pill">Guardar Cambios</button>
                         </div>
                     </form>
                 </div>
             </div>
+
+            <div class="card border-0 shadow-sm" style="background: #ffffff;">
+                <div class="card-header bg-white border-0 py-3 d-flex align-items-center">
+                    <h5 class="fw-bold mb-0 text-dark"><i class="bi bi-shield-lock-fill text-danger me-2"></i> Seguridad</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label text-secondary small fw-bold">Contraseña Actual</label>
+                                <input type="password" name="pass_actual" class="form-control" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label text-secondary small fw-bold">Nueva Contraseña</label>
+                                <input type="password" name="pass_nueva" class="form-control" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label text-secondary small fw-bold">Confirmar Nueva</label>
+                                <input type="password" name="pass_confirmar" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" name="cambiar_pass" class="btn btn-outline-danger px-4 rounded-pill">Actualizar Contraseña</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
