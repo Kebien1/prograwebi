@@ -41,9 +41,16 @@ $lecciones = $stmtLecciones->fetchAll();
 
 // 4. Determinar lección actual
 $clase_actual = null;
+$recursos_clase = []; // Array para guardar los archivos
+
 if (!empty($lecciones)) {
     if (!isset($lecciones[$indice_actual])) { $indice_actual = 0; }
     $clase_actual = $lecciones[$indice_actual];
+
+    // 5. NUEVO: Obtener recursos específicos de esta lección
+    $stmtRecursos = $conexion->prepare("SELECT * FROM materiales WHERE leccion_id = ? ORDER BY id DESC");
+    $stmtRecursos->execute([$clase_actual['id']]);
+    $recursos_clase = $stmtRecursos->fetchAll();
 }
 ?>
 <!doctype html>
@@ -61,10 +68,9 @@ if (!empty($lecciones)) {
             height: 100vh; 
             display: flex; 
             flex-direction: column; 
-            overflow: hidden; /* El scroll lo manejamos dentro de las áreas */
+            overflow: hidden; 
         }
         
-        /* Navbar */
         .aula-navbar { 
             background-color: #1a1c29; 
             border-bottom: 1px solid #2d2f40; 
@@ -75,55 +81,31 @@ if (!empty($lecciones)) {
             flex-shrink: 0;
         }
         
-        /* Layout Principal */
-        .main-layout { 
-            flex: 1; 
-            display: flex; 
-            overflow: hidden; 
-        }
-        
-        /* Área del Video (Izquierda) */
-        .player-area { 
-            flex: 1; 
-            background: #000; 
-            display: flex; 
-            flex-direction: column; 
-            overflow-y: auto; /* Scroll aquí */
-        }
+        .main-layout { flex: 1; display: flex; overflow: hidden; }
+        .player-area { flex: 1; background: #000; display: flex; flex-direction: column; overflow-y: auto; }
 
-        /* Contenedor del Iframe para controlar el tamaño */
         .video-wrapper-limit {
             width: 100%;
-            max-width: 1100px; /* Límite de ancho para que no sea gigante */
-            margin: 0 auto;    /* Centrado horizontal */
+            max-width: 1100px; 
+            margin: 0 auto;    
             background: #000;
         }
         
         .iframe-container {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            padding-top: 56.25%; 
         }
         
         .iframe-container iframe { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            bottom: 0; 
-            right: 0; 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
+            position: absolute; top: 0; left: 0; bottom: 0; right: 0; width: 100%; height: 100%; border: none; 
         }
         
-        /* Sidebar Temario (Derecha) */
         .sidebar-area { 
             width: 350px; 
             background-color: #161821; 
             border-left: 1px solid #2d2f40; 
-            display: flex; 
-            flex-direction: column; 
-            flex-shrink: 0;
+            display: flex; flex-direction: column; flex-shrink: 0;
         }
         .sidebar-header { padding: 15px; border-bottom: 1px solid #2d2f40; background: #1a1c29; }
         .sidebar-content { flex: 1; overflow-y: auto; }
@@ -134,10 +116,21 @@ if (!empty($lecciones)) {
         }
         .lesson-item:hover { background-color: #1f2130; color: #fff; }
         .lesson-item.active { background-color: #23263a; color: #3b82f6; border-left: 4px solid #3b82f6; }
+
+        /* Estilo para los recursos */
+        .resource-card {
+            background-color: #1f212d;
+            border: 1px solid #2d2f40;
+            border-radius: 8px;
+            transition: 0.2s;
+        }
+        .resource-card:hover {
+            background-color: #2a2d3d;
+            border-color: #3b82f6;
+        }
         
-        /* Responsive */
         @media (max-width: 992px) {
-            .main-layout { flex-direction: column; overflow-y: auto; } /* En móvil el scroll es global */
+            .main-layout { flex-direction: column; overflow-y: auto; }
             body { height: auto; overflow: auto; }
             .sidebar-area { width: 100%; height: auto; border-left: none; border-top: 1px solid #2d2f40; }
             .player-area { overflow: visible; height: auto; }
@@ -182,7 +175,27 @@ if (!empty($lecciones)) {
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between mb-5">
+                    <?php if(!empty($recursos_clase)): ?>
+                        <h5 class="fw-bold text-white mb-3"><i class="bi bi-paperclip"></i> Recursos de la clase</h5>
+                        <div class="row g-3 mb-5">
+                            <?php foreach($recursos_clase as $rec): ?>
+                                <div class="col-md-6">
+                                    <a href="../../uploads/materiales/<?php echo $rec['archivo_path']; ?>" target="_blank" class="text-decoration-none">
+                                        <div class="resource-card p-3 d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 p-2 rounded me-3 text-primary">
+                                                <i class="bi bi-file-earmark-arrow-down-fill fs-4"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0 text-white fw-bold"><?php echo htmlspecialchars($rec['nombre']); ?></h6>
+                                                <small class="text-muted">Clic para descargar</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                    <div class="d-flex justify-content-between mb-5 mt-4">
                         <?php if($indice_actual > 0): ?>
                             <a href="aula.php?id=<?php echo $id_curso; ?>&indice=<?php echo $indice_actual - 1; ?>" class="btn btn-outline-secondary px-4">
                                 <i class="bi bi-chevron-left"></i> Anterior
