@@ -2,19 +2,20 @@
 session_start();
 require_once '../../config/bd.php';
 
-// Validar sesión
+// 1. Validar sesión
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol_id'] != 3) {
     header("Location: ../../index.php");
     exit;
 }
 
-// Recibir datos del formulario de la pasarela
+// 2. Recibir datos (Funciona tanto para GET como para POST gracias a $_REQUEST)
 $tipo = $_REQUEST['tipo'] ?? '';
 $id_item = $_REQUEST['id'] ?? 0;
 $usuario_id = $_SESSION['usuario_id'];
 
-// Simulación de "Procesando pago..." (opcional: podrías agregar un sleep(2) para realismo)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tipo && $id_item) {
+// 3. Procesar la inscripción
+// CORRECCIÓN: Quitamos la restricción estricta de "POST" para permitir enlaces directos
+if ($tipo && $id_item) {
     
     try {
         // CASO 1: SUSCRIPCIÓN (PLANES)
@@ -39,18 +40,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tipo && $id_item) {
         } 
         // CASO 2: CURSOS Y LIBROS
         else {
-            // Verificar si ya lo tiene comprado para no duplicar
+            // Verificar si ya lo tiene comprado para no duplicar registros
             $check = $conexion->prepare("SELECT id FROM compras WHERE usuario_id=? AND item_id=? AND tipo_item=?");
             $check->execute([$usuario_id, $id_item, $tipo]);
             
             if($check->rowCount() == 0) {
-                // Registrar la compra
+                // Registrar la compra (inscripción gratuita)
                 $sql = "INSERT INTO compras (usuario_id, item_id, tipo_item, monto_pagado, fecha_compra) VALUES (?, ?, ?, 0, NOW())";
                 $stmt = $conexion->prepare($sql);
                 $stmt->execute([$usuario_id, $id_item, $tipo]);
             }
             
-            // Redirigir según el tipo
+            // Redirigir al contenido correspondiente
             if($tipo == 'curso') {
                 header("Location: aula.php?id=$id_item&compra_exitosa=1");
             } else {
@@ -63,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tipo && $id_item) {
         die("Error procesando la transacción: " . $e->getMessage());
     }
 } else {
-    // Si intentan entrar directo sin datos
+    // Si intentan entrar directo sin datos válidos
     header("Location: catalogo.php");
     exit;
 }
