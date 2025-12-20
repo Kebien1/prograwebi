@@ -4,22 +4,29 @@ require_once '../../includes/security.php';
 verificarRol(1); // Solo Admin
 require_once '../../includes/header.php';
 
-// Lógica para eliminar (opcional, pero útil)
+// Lógica para eliminar un plan
 if (isset($_GET['borrar'])) {
     $id = $_GET['borrar'];
     // Evitamos borrar el plan 1 (Básico) por seguridad, ya que es el default
     if ($id != 1) {
-        // Antes de borrar, pasamos a los usuarios de este plan al plan básico (1)
+        // Antes de borrar, pasamos a los usuarios de este plan al plan básico (1) para no dejarlos huérfanos
         $conexion->prepare("UPDATE usuarios SET plan_id = 1 WHERE plan_id = ?")->execute([$id]);
+        
+        // Ahora sí borramos el plan
         $conexion->prepare("DELETE FROM planes WHERE id = ?")->execute([$id]);
     }
     echo "<script>window.location='planes.php';</script>";
+    exit;
 }
 
-$planes = $conexion->query("SELECT * FROM planes ORDER BY price ASC")->fetchAll(); // Si 'precio' da error, usa 'id'
-// Nota: En tu script SQL anterior usaste 'precio', asegúrate de que la columna se llame así. 
-// Si copiaste mi script anterior literal, la columna es 'precio'.
-$planes = $conexion->query("SELECT * FROM planes ORDER BY precio ASC")->fetchAll();
+// --- CONSULTA DE PLANES ---
+// Corrección: Usamos una sola consulta y ordenamos por 'precio' (o 'id' si prefieres)
+try {
+    $planes = $conexion->query("SELECT * FROM planes ORDER BY precio ASC")->fetchAll();
+} catch (Exception $e) {
+    // Si falla (por ejemplo si la columna se llama diferente), mostramos el error
+    die("Error al cargar planes: " . $e->getMessage());
+}
 ?>
 
 <div class="container mt-4">
