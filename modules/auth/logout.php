@@ -1,21 +1,30 @@
 <?php
+// modules/auth/logout.php
 session_start();
 require_once '../../config/bd.php';
 
-// Si el usuario está logueado, borramos SU registro de sesión actual de la base de datos
+// ==========================================
+// CONFIGURACIÓN
+// ==========================================
+$tabla_sesiones = "sesiones_activas";
+$col_sesion     = "session_id";
+// ==========================================
+
 if (isset($_SESSION['usuario_id'])) {
-    $session_id_php = session_id();
-    
-    // Solo borramos la sesión actual del navegador donde dio click en "Salir"
-    $stmt = $conexion->prepare("DELETE FROM sesiones_activas WHERE session_id = :sid");
-    $stmt->execute([':sid' => $session_id_php]);
+    // Borrar la sesión de la base de datos para liberar el cupo
+    $sessionId = session_id();
+    try {
+        $sql = "DELETE FROM $tabla_sesiones WHERE $col_sesion = ?";
+        $conexion->prepare($sql)->execute([$sessionId]);
+    } catch (Exception $e) {
+        // Ignoramos errores de BD al salir
+    }
 }
 
-// Limpiar y destruir la sesión de PHP
+// Destruir sesión PHP
 session_unset();
 session_destroy();
 
-// Redirigir al inicio
-header("Location: ../../index.php");
+header("Location: login.php");
 exit;
 ?>
