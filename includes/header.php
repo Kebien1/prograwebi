@@ -93,13 +93,13 @@ $base_url = rtrim($base_url, '/');
 
             <?php if($_SESSION['rol_id'] == 3): ?>
                 <li class="nav-item">
-                    <a class="nav-link" href="<?php echo $base_url; ?>../../../modules/estudiante/dashboard.php">Mi Panel</a>
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/dashboard.php">Mi Panel</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="<?php echo $base_url; ?>../../../modules/estudiante/catalogo.php">Catálogo</a>
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/catalogo.php">Catálogo</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="<?php echo $base_url; ?>../../../modules/estudiante/mis_compras.php">Mis Cursos</a>
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/mis_compras.php">Mis Cursos</a>
                 </li>
             <?php endif; ?>
 
