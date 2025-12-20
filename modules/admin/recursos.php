@@ -1,7 +1,7 @@
 <?php
 // modules/admin/recursos.php
 
-// Depuración activada
+// Mantenemos reporte de errores visible por si surge algo más
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -10,7 +10,7 @@ require_once '../../config/bd.php';
 require_once '../../includes/security.php';
 verificarRol(1); // Solo Administrador
 
-// --- AJAX LECCIONES ---
+// --- AJAX PARA CARGAR LECCIONES ---
 if (isset($_GET['ajax_get_lecciones']) && isset($_GET['curso_id'])) {
     try {
         $stmt = $conexion->prepare("SELECT id, titulo FROM lecciones WHERE curso_id = ? ORDER BY orden ASC");
@@ -29,34 +29,44 @@ $mensaje = "";
 // 1. SUBIR RECURSO
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
     try {
+        // Validaciones
         if (empty($_POST['curso_id'])) throw new Exception("Selecciona un curso.");
         if (empty($_POST['leccion_id'])) throw new Exception("Selecciona una lección.");
-        if (empty($_POST['titulo'])) throw new Exception("Escribe un nombre para el archivo.");
+        if (empty($_POST['titulo'])) throw new Exception("Escribe un título para el archivo.");
         
         $titulo = trim($_POST['titulo']);
-        $tipo = "Material"; 
         $curso_id = $_POST['curso_id'];
         $leccion_id = $_POST['leccion_id'];
+        $docente_id = $_SESSION['usuario_id']; // Usamos el ID del admin conectado como docente
         
-        if ($_FILES['archivo']['error'] !== 0) throw new Exception("Error al subir archivo. Code: " . $_FILES['archivo']['error']);
+        // Validar subida
+        if ($_FILES['archivo']['error'] !== 0) throw new Exception("Error al subir archivo. Código: " . $_FILES['archivo']['error']);
 
         $ext = pathinfo($_FILES['archivo']['name'], PATHINFO_EXTENSION);
+        // Nombre único para evitar duplicados
         $nombre_archivo_fisico = "leccion_" . $leccion_id . "_" . time() . "." . $ext;
         
         $upload_dir = "../../uploads/materiales/";
-        if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
+        if (!file_exists($upload_dir)) {
+            if (!mkdir($upload_dir, 0777, true)) throw new Exception("No se pudo crear carpeta de subidas.");
+        }
         
         $ruta_destino = $upload_dir . $nombre_archivo_fisico;
 
         if (move_uploaded_file($_FILES['archivo']['tmp_name'], $ruta_destino)) {
-            // CORRECCIÓN: Usamos 'titulo' y 'archivo' (en vez de 'nombre' y 'archivo_path')
-            $sql = "INSERT INTO materiales (titulo, archivo, tipo, curso_id, leccion_id, fecha_subida) VALUES (?, ?, ?, ?, ?, NOW())";
+            
+            // CORRECCIÓN SQL:
+            // 1. Quitamos 'tipo'
+            // 2. Agregamos 'docente_id' (según tu imagen de la tabla)
+            $sql = "INSERT INTO materiales (titulo, archivo, curso_id, leccion_id, docente_id, fecha_subida) 
+                    VALUES (?, ?, ?, ?, ?, NOW())";
+            
             $stmt = $conexion->prepare($sql);
-            $stmt->execute([$titulo, $nombre_archivo_fisico, $tipo, $curso_id, $leccion_id]);
+            $stmt->execute([$titulo, $nombre_archivo_fisico, $curso_id, $leccion_id, $docente_id]);
             
             $mensaje = "<div class='alert alert-success small'>Recurso guardado correctamente.</div>";
         } else {
-            throw new Exception("No se pudo mover el archivo subido.");
+            throw new Exception("Error al mover el archivo a la carpeta final.");
         }
 
     } catch (Exception $e) {
@@ -68,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo'])) {
 if (isset($_GET['borrar'])) {
     try {
         $id_borrar = $_GET['borrar'];
-        // CORRECCIÓN: Seleccionamos 'archivo' en lugar de 'archivo_path'
+        // Usamos 'archivo' para buscar el path
         $stmt = $conexion->prepare("SELECT archivo FROM materiales WHERE id = ?");
         $stmt->execute([$id_borrar]);
         $file = $stmt->fetch();
@@ -76,15 +86,16 @@ if (isset($_GET['borrar'])) {
         if ($file) {
             $ruta = "../../uploads/materiales/" . $file['archivo'];
             if (file_exists($ruta)) unlink($ruta);
+            
             $conexion->prepare("DELETE FROM materiales WHERE id = ?")->execute([$id_borrar]);
-            $mensaje = "<div class='alert alert-danger small'>Archivo eliminado.</div>";
+            $mensaje = "<div class='alert alert-success small'>Archivo eliminado.</div>";
         }
     } catch (Exception $e) {
         $mensaje = "<div class='alert alert-danger small'>Error al borrar: " . $e->getMessage() . "</div>";
     }
 }
 
-// 3. LISTADO
+// 3. CONSULTAS PARA LA VISTA
 try {
     $cursos = $conexion->query("SELECT id, titulo FROM cursos ORDER BY id DESC")->fetchAll();
 
@@ -96,13 +107,14 @@ try {
     $recursos = $conexion->query($sqlListado)->fetchAll();
 } catch (Exception $e) {
     $mensaje = "<div class='alert alert-danger'>Error BD: " . $e->getMessage() . "</div>";
-    $cursos = []; 
+    $cursos = [];
     $recursos = [];
 }
 ?>
 
 <div class="container mt-4">
     <h2 class="fw-bold text-dark mb-4"><i class="bi bi-paperclip text-success"></i> Recursos por Lección</h2>
+    
     <?php echo $mensaje; ?>
 
     <div class="row">
@@ -130,7 +142,7 @@ try {
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">3. Título del Recurso</label>
-                            <input type="text" name="titulo" class="form-control form-control-sm" placeholder="Ej: Ejercicios PDF" required>
+                            <input type="text" name="titulo" class="form-control form-control-sm" placeholder="Ej: Guía PDF" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label small fw-bold">4. Archivo</label>
