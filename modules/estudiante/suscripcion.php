@@ -113,12 +113,10 @@ require_once '../../includes/header.php';
                         <?php if($esActual): ?>
                             <button class="btn btn-secondary w-100 rounded-pill" disabled>Plan Actual</button>
                         <?php else: ?>
-                            <form method="POST" onsubmit="return confirm('¿Estás seguro de cambiar al plan <?php echo $p['nombre']; ?>?');">
-                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">
-                                    Cambiar a <?php echo $p['nombre']; ?>
-                                </button>
-                            </form>
+                            <a href="pasarela_pago.php?tipo=plan&id=<?php echo $p['id']; ?>&precio=<?php echo $p['precio']; ?>&nombre=Plan <?php echo $p['nombre']; ?>" 
+   class="btn btn-primary w-100 rounded-pill fw-bold">
+    Seleccionar <?php echo htmlspecialchars($p['nombre']); ?>
+</a>
                         <?php endif; ?>
                     </div>
                 </div>

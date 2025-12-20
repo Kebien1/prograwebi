@@ -2,40 +2,69 @@
 session_start();
 require_once '../../config/bd.php';
 
+// Validar sesión
 if (!isset($_SESSION['usuario_id']) || $_SESSION['rol_id'] != 3) {
     header("Location: ../../index.php");
     exit;
 }
 
+// Recibir datos del formulario de la pasarela
 $tipo = $_REQUEST['tipo'] ?? '';
 $id_item = $_REQUEST['id'] ?? 0;
 $usuario_id = $_SESSION['usuario_id'];
 
-if ($tipo && $id_item) {
+// Simulación de "Procesando pago..." (opcional: podrías agregar un sleep(2) para realismo)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $tipo && $id_item) {
+    
     try {
-        // Verificar si ya lo tiene
-        $check = $conexion->prepare("SELECT id FROM compras WHERE usuario_id=? AND item_id=? AND tipo_item=?");
-        $check->execute([$usuario_id, $id_item, $tipo]);
-        
-        if($check->rowCount() == 0) {
-            // INSCRIBIR GRATIS
-            $sql = "INSERT INTO compras (usuario_id, item_id, tipo_item, monto_pagado, fecha_compra) VALUES (?, ?, ?, 0, NOW())";
-            $stmt = $conexion->prepare($sql);
-            $stmt->execute([$usuario_id, $id_item, $tipo]);
+        // CASO 1: SUSCRIPCIÓN (PLANES)
+        if ($tipo === 'plan') {
+            // Verificar que el plan existe
+            $stmt = $conexion->prepare("SELECT id, nombre FROM planes WHERE id = ?");
+            $stmt->execute([$id_item]);
+            $plan = $stmt->fetch();
+
+            if ($plan) {
+                // Actualizar el usuario con el nuevo plan
+                $sql = "UPDATE usuarios SET plan_id = ? WHERE id = ?";
+                $conexion->prepare($sql)->execute([$id_item, $usuario_id]);
+                
+                // Actualizar sesión actual
+                $_SESSION['plan_id'] = $id_item;
+                
+                // Redirigir con éxito
+                header("Location: suscripcion.php?pago_exitoso=1&plan=" . urlencode($plan['nombre']));
+                exit;
+            }
+        } 
+        // CASO 2: CURSOS Y LIBROS
+        else {
+            // Verificar si ya lo tiene comprado para no duplicar
+            $check = $conexion->prepare("SELECT id FROM compras WHERE usuario_id=? AND item_id=? AND tipo_item=?");
+            $check->execute([$usuario_id, $id_item, $tipo]);
+            
+            if($check->rowCount() == 0) {
+                // Registrar la compra
+                $sql = "INSERT INTO compras (usuario_id, item_id, tipo_item, monto_pagado, fecha_compra) VALUES (?, ?, ?, 0, NOW())";
+                $stmt = $conexion->prepare($sql);
+                $stmt->execute([$usuario_id, $id_item, $tipo]);
+            }
+            
+            // Redirigir según el tipo
+            if($tipo == 'curso') {
+                header("Location: aula.php?id=$id_item&compra_exitosa=1");
+            } else {
+                header("Location: mis_compras.php?exito=1");
+            }
+            exit;
         }
-        
-        // Redirigir al contenido
-        if($tipo == 'curso') {
-            header("Location: aula.php?id=$id_item");
-        } else {
-            header("Location: mis_compras.php?exito=1");
-        }
-        exit;
-        
+
     } catch (Exception $e) {
-        die("Error: " . $e->getMessage());
+        die("Error procesando la transacción: " . $e->getMessage());
     }
 } else {
+    // Si intentan entrar directo sin datos
     header("Location: catalogo.php");
+    exit;
 }
 ?>
