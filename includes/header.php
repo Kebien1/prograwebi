@@ -4,11 +4,15 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // DEFINIR RUTA BASE
+// Primero intentamos usar la constante definida en config/bd.php
 if (defined('BASE_URL')) {
     $base_url = BASE_URL;
 } else {
+    // Si no está definida, usamos una detección automática o fallback
     $base_url = 'https://prograweb1.infinityfreeapp.com'; 
 }
+
+// Asegurarnos de que no tenga una barra al final para evitar errores de doble barra //
 $base_url = rtrim($base_url, '/');
 ?>
 <!doctype html>
@@ -31,9 +35,14 @@ $base_url = rtrim($base_url, '/');
         .navbar {
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
+        /* Efecto hover suave para tarjetas en otras vistas */
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
-        .flex-shrink-0 { flex: 1; }
+        
+        /* Asegurar que el footer se quede abajo */
+        .flex-shrink-0 {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -44,23 +53,37 @@ $base_url = rtrim($base_url, '/');
         <i class="bi bi-mortarboard-fill text-primary"></i> EduPlatform
     </a>
     
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#userNav">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#userNav" aria-controls="userNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
 
     <div class="collapse navbar-collapse" id="userNav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        
         <li class="nav-item">
           <a class="nav-link" href="<?php echo $base_url; ?>/index.php">Inicio</a>
         </li>
 
         <?php if(isset($_SESSION['usuario_id'])): ?>
+            
             <?php if($_SESSION['rol_id'] == 1): ?>
-                <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/dashboard.php">Panel</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/usuarios.php">Usuarios</a></li>
-                <li class="nav-item"><a class="nav-link fw-bold text-warning" href="<?php echo $base_url; ?>/modules/admin/planes.php"><i class="bi bi-star-fill"></i> Planes</a></li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/dashboard.php">Panel</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/usuarios.php">Usuarios</a>
+                </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link fw-bold text-warning" href="<?php echo $base_url; ?>/modules/admin/planes.php">
+                        <i class="bi bi-star-fill"></i> Planes
+                    </a>
+                </li>
+                
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Cursos</a>
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                        Cursos
+                    </a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/admin/cursos_lista.php">Listar Cursos</a></li>
                         <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/admin/cursos_crear.php">Crear Nuevo</a></li>
@@ -69,49 +92,48 @@ $base_url = rtrim($base_url, '/');
             <?php endif; ?>
 
             <?php if($_SESSION['rol_id'] == 3): ?>
-                <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/dashboard.php">Mi Panel</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/catalogo.php">Catálogo</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/mis_compras.php">Mis Cursos</a></li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/dashboard.php">Mi Panel</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/catalogo.php">Catálogo</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/mis_compras.php">Mis Cursos</a>
+                </li>
             <?php endif; ?>
+
         <?php endif; ?>
       </ul>
 
-      <ul class="navbar-nav ms-auto align-items-center">
-        <?php
-        $cantidad_carrito = 0;
-        if (isset($_SESSION['carrito'])) {
-            $cantidad_carrito = count($_SESSION['carrito']);
-        }
-        ?>
-        <li class="nav-item me-3">
-            <a class="nav-link position-relative" href="<?php echo $base_url; ?>/modules/estudiante/carrito_ver.php">
-                <i class="bi bi-cart-fill" style="font-size: 1.3rem;"></i>
-                <?php if($cantidad_carrito > 0): ?>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        <?php echo $cantidad_carrito; ?>
-                        <span class="visually-hidden">items</span>
-                    </span>
-                <?php endif; ?>
-            </a>
-        </li>
-
+      <ul class="navbar-nav ms-auto">
         <?php if(isset($_SESSION['usuario_id'])): ?>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">
                     <i class="bi bi-person-circle"></i> <?php echo htmlspecialchars($_SESSION['nombre']); ?>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
+                    
                     <?php if($_SESSION['rol_id'] == 3): ?>
                         <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/estudiante/perfil.php">Mi Perfil</a></li>
-                        <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/estudiante/suscripcion.php"><i class="bi bi-credit-card-2-front"></i> Mi Suscripción</a></li>
+                        
+                        <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/estudiante/suscripcion.php">
+                            <i class="bi bi-credit-card-2-front"></i> Mi Suscripción
+                        </a></li>
+                        
                         <li><hr class="dropdown-divider"></li>
                     <?php endif; ?>
+                    
                     <li><a class="dropdown-item text-danger" href="<?php echo $base_url; ?>/modules/auth/logout.php">Cerrar Sesión</a></li>
                 </ul>
             </li>
         <?php else: ?>
-            <li class="nav-item"><a class="nav-link" href="<?php echo $base_url; ?>/modules/auth/login.php">Iniciar Sesión</a></li>
-            <li class="nav-item"><a class="btn btn-primary btn-sm ms-2" href="<?php echo $base_url; ?>/modules/auth/registro.php">Regístrate</a></li>
+            <li class="nav-item">
+                <a class="nav-link" href="<?php echo $base_url; ?>/modules/auth/login.php">Iniciar Sesión</a>
+            </li>
+            <li class="nav-item">
+                <a class="btn btn-primary btn-sm ms-2" href="<?php echo $base_url; ?>/modules/auth/registro.php">Regístrate</a>
+            </li>
         <?php endif; ?>
       </ul>
     </div>
