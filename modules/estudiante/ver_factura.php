@@ -1,6 +1,5 @@
 <?php
 session_start();
-// Asegurarnos de que la ruta a bd.php es correcta
 require_once '../../config/bd.php';
 
 // 1. Validar sesión
@@ -22,8 +21,9 @@ try {
     // ---------------------------------------------------------
     // 3. Obtener datos de la Factura y del Cliente
     // ---------------------------------------------------------
-    // Usamos alias claros para evitar conflictos de columnas
-    $sqlFactura = "SELECT f.*, u.nombre, u.apellido, u.email, u.telefono 
+    // CORRECCIÓN: Se cambió 'u.nombre, u.apellido' por 'u.nombre_completo'
+    // y se quitó 'u.telefono' para evitar errores si la columna no existe.
+    $sqlFactura = "SELECT f.*, u.nombre_completo, u.email 
                    FROM facturas f 
                    INNER JOIN usuarios u ON f.usuario_id = u.id 
                    WHERE f.id = ? AND f.usuario_id = ?";
@@ -33,7 +33,6 @@ try {
     $f = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$f) {
-        // Si no se encuentra, redirigir o mostrar mensaje amigable
         echo "<div style='padding:20px; text-align:center; font-family:sans-serif;'>
                 <h2>Factura no encontrada</h2>
                 <p>No se encontró la factura solicitada o no tienes permisos para verla.</p>
@@ -43,10 +42,8 @@ try {
     }
 
     // ---------------------------------------------------------
-    // 4. Obtener los productos (MEJORADO con LEFT JOIN)
+    // 4. Obtener los productos
     // ---------------------------------------------------------
-    // En lugar de subconsultas propensas a error, usamos JOINs para buscar el titulo 
-    // en la tabla 'cursos' o 'lecciones' según corresponda.
     $sqlItems = "SELECT 
                     c.monto_pagado,
                     c.tipo_item,
@@ -109,12 +106,9 @@ try {
                 <div class="col-sm-6">
                     <h6 class="fw-bold text-secondary text-uppercase small mb-3">Facturado a:</h6>
                     <h5 class="fw-bold mb-1 text-dark">
-                        <?php echo htmlspecialchars($f['nombre'] . ' ' . $f['apellido']); ?>
+                        <?php echo htmlspecialchars($f['nombre_completo']); ?>
                     </h5>
                     <p class="mb-0 text-muted small"><i class="bi bi-envelope-fill me-1"></i> <?php echo htmlspecialchars($f['email']); ?></p>
-                    <?php if(!empty($f['telefono'])): ?>
-                        <p class="mb-0 text-muted small"><i class="bi bi-telephone-fill me-1"></i> <?php echo htmlspecialchars($f['telefono']); ?></p>
-                    <?php endif; ?>
                 </div>
             </div>
 
