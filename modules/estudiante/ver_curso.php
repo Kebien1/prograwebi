@@ -17,13 +17,13 @@ $curso = $stmt->fetch();
 
 if (!$curso) { echo "<div class='container mt-5'>Curso no encontrado.</div>"; exit; }
 
-// 2. NUEVO: Obtener lecciones del curso para el temario
+// 2. Obtener el Temario (Lecciones)
 $sqlLecciones = "SELECT * FROM lecciones WHERE curso_id = ? ORDER BY id ASC";
 $stmtLecciones = $conexion->prepare($sqlLecciones);
 $stmtLecciones->execute([$id_curso]);
 $lecciones = $stmtLecciones->fetchAll();
 
-// Verificar si hay alguna clase gratis
+// Verificar si hay clases gratis para el botón de "Vista Previa"
 $hayGratis = false;
 foreach($lecciones as $l) {
     if($l['es_gratis'] == 1) {
@@ -32,14 +32,13 @@ foreach($lecciones as $l) {
     }
 }
 
-// 3. Verificar estado del usuario
+// 3. Verificar si el usuario ya compró el curso
 $yaComprado = false;
 $esEstudiante = false;
 
 if (isset($_SESSION['usuario_id'])) {
     if ($_SESSION['rol_id'] == 3) {
         $esEstudiante = true;
-        // Verificamos si ya lo compró o se inscribió
         $check = $conexion->prepare("SELECT id FROM compras WHERE usuario_id = ? AND item_id = ? AND tipo_item = 'curso'");
         $check->execute([$_SESSION['usuario_id'], $id_curso]);
         $yaComprado = $check->rowCount() > 0;
@@ -70,46 +69,62 @@ if (isset($_SESSION['usuario_id'])) {
             <h4 class="fw-bold mb-3">Descripción</h4>
             <p class="text-secondary lh-lg mb-5"><?php echo nl2br(htmlspecialchars($curso['descripcion'])); ?></p>
 
-            <h4 class="fw-bold mb-4">Contenido del Curso</h4>
-            <div class="list-group mb-5">
-                <?php if(count($lecciones) > 0): ?>
-                    <?php foreach($lecciones as $index => $leccion): ?>
-                        <?php 
-                            // Lógica para mostrar candado o play
-                            $esGratis = $leccion['es_gratis'] == 1;
-                            $acceso = $yaComprado || $esGratis; 
-                            
-                            $icono = $acceso ? '<i class="bi bi-play-circle-fill text-primary fs-5"></i>' : '<i class="bi bi-lock-fill text-muted fs-5"></i>';
-                            $claseTexto = $acceso ? 'text-dark' : 'text-muted';
-                            // Etiqueta de "Gratis" si no ha comprado y es gratis
-                            $badge = ($esGratis && !$yaComprado) ? '<span class="badge bg-success ms-2">Gratis</span>' : '';
-                        ?>
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white py-3">
+                    <h4 class="fw-bold mb-0">Contenido del Curso</h4>
+                </div>
+                <div class="list-group list-group-flush">
+                    <?php if(count($lecciones) > 0): ?>
+                        <?php foreach($lecciones as $index => $leccion): ?>
+                            <?php 
+                                // Lógica de acceso
+                                $esGratis = $leccion['es_gratis'] == 1;
+                                $acceso = $yaComprado || $esGratis; 
+                            ?>
 
-                        <a href="<?php echo $acceso ? 'aula.php?id='.$curso['id'].'&l='.$index : '#'; ?>" 
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3 <?php echo !$acceso ? 'disabled bg-light' : ''; ?>">
-                            
-                            <div class="d-flex align-items-center">
-                                <span class="me-3"><?php echo $icono; ?></span>
-                                <div>
-                                    <span class="fw-bold <?php echo $claseTexto; ?>">
-                                        <?php echo $index + 1 . ". " . htmlspecialchars($leccion['titulo']); ?>
-                                    </span>
-                                    <?php echo $badge; ?>
+                            <?php if($acceso): ?>
+                                <a href="aula.php?id=<?php echo $curso['id']; ?>&l=<?php echo $index; ?>" 
+                                   class="list-group-item list-group-item-action p-3 d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-play-circle-fill text-primary fs-4 me-3"></i>
+                                        <div>
+                                            <span class="fw-bold text-dark">
+                                                <?php echo $index + 1 . ". " . htmlspecialchars($leccion['titulo']); ?>
+                                            </span>
+                                            <?php if($esGratis && !$yaComprado): ?>
+                                                <span class="badge bg-success ms-2">Gratis</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <span class="small text-muted">Ver clase <i class="bi bi-chevron-right"></i></span>
+                                </a>
+
+                            <?php else: ?>
+                                <div class="list-group-item p-3 d-flex justify-content-between align-items-center bg-light text-muted">
+                                    <div class="d-flex align-items-center" style="opacity: 0.7;">
+                                        <i class="bi bi-lock-fill text-secondary fs-4 me-3"></i>
+                                        <div>
+                                            <span class="fw-normal">
+                                                <?php echo $index + 1 . ". " . htmlspecialchars($leccion['titulo']); ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <i class="bi bi-lock text-muted"></i>
                                 </div>
-                            </div>
-                            
-                            <span class="small text-muted">Video</span>
-                        </a>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <div class="alert alert-info">El docente aún no ha subido contenido a este curso.</div>
-                <?php endif; ?>
+                            <?php endif; ?>
+
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="p-4 text-center text-muted">
+                            Aún no se han publicado lecciones para este curso.
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
             </div>
 
-        </div>
-
         <div class="col-lg-4">
-            <div class="card shadow-sm border-0 sticky-top" style="top: 100px;">
+            <div class="card shadow-sm border-0 sticky-top" style="top: 100px; z-index: 10;">
                 <?php 
                     $img = "../../uploads/cursos/" . $curso['imagen_portada'];
                     if(file_exists($img) && !empty($curso['imagen_portada'])): 
@@ -121,28 +136,26 @@ if (isset($_SESSION['usuario_id'])) {
                     
                     <?php if($curso['precio'] > 0): ?>
                         <h2 class="fw-bold text-dark my-3">$<?php echo number_format($curso['precio'], 2); ?></h2>
-                        <p class="text-muted small">Acceso completo al curso</p>
                     <?php else: ?>
                         <h2 class="fw-bold text-success my-3">Gratis</h2>
                     <?php endif; ?>
                     
-                    <div class="d-grid gap-2">
+                    <div class="d-grid gap-2 mt-4">
                         <?php if(!isset($_SESSION['usuario_id'])): ?>
                             <a href="../../modules/auth/login.php" class="btn btn-primary btn-lg fw-bold shadow-sm">
                                 <i class="bi bi-box-arrow-in-right"></i> Ingresa para Inscribirte
                             </a>
-                            <?php if($hayGratis): ?>
+                             <?php if($hayGratis): ?>
                                 <a href="../../modules/auth/login.php" class="btn btn-outline-secondary btn-sm mt-2">
-                                    <i class="bi bi-play-circle"></i> Inicia sesión para ver la muestra gratis
+                                    <i class="bi bi-play-circle"></i> Ver clases de prueba
                                 </a>
                             <?php endif; ?>
-                            <p class="small text-muted mt-2">¿No tienes cuenta? <a href="../../modules/auth/registro.php">Regístrate gratis</a></p>
 
                         <?php elseif($esEstudiante): ?>
                             <?php if($yaComprado): ?>
-                                <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-success btn-lg fw-bold">Ir al Aula</a>
-                            
+                                <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-success btn-lg fw-bold">Continuar Curso</a>
                             <?php else: ?>
+                                
                                 <?php if($curso['precio'] > 0): ?>
                                     <form action="carrito_acciones.php" method="POST">
                                         <input type="hidden" name="accion" value="agregar">
@@ -152,15 +165,14 @@ if (isset($_SESSION['usuario_id'])) {
                                         <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
                                         
                                         <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm w-100 mb-2">
-                                            <i class="bi bi-cart-plus"></i> Comprar Curso Completo
+                                            <i class="bi bi-cart-plus"></i> Comprar Curso
                                         </button>
                                     </form>
 
                                     <?php if($hayGratis): ?>
-                                        <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-outline-success fw-bold">
-                                            <i class="bi bi-eye"></i> Ver Vista Previa Gratis
+                                        <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-outline-dark fw-bold">
+                                            <i class="bi bi-eye"></i> Ver Clases Gratis
                                         </a>
-                                        <p class="text-center small text-muted mt-2">Prueba las clases gratuitas antes de comprar.</p>
                                     <?php endif; ?>
 
                                 <?php else: ?>
@@ -172,7 +184,7 @@ if (isset($_SESSION['usuario_id'])) {
                             <?php endif; ?>
 
                         <?php else: ?>
-                            <div class="alert alert-secondary">Vista previa como Docente/Admin</div>
+                            <div class="alert alert-secondary">Vista Admin/Docente</div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -180,6 +192,7 @@ if (isset($_SESSION['usuario_id'])) {
         </div>
     </div>
 </div>
+
 <?php 
 require_once '../../includes/footer_admin.php'; 
 ?>
