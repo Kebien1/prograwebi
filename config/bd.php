@@ -1,7 +1,7 @@
 <?php
-
+// DEFINIR URL BASE (Ajusta esto si cambias de dominio)
 define('BASE_URL', 'https://prograweb1.infinityfreeapp.com/');
-// ... resto del código de conexión ...
+
 $servidor = "sql111.infinityfree.com";
 $basededatos = "if0_40651214_db_prograwebi"; 
 $usuario = "if0_40651214";
@@ -15,4 +15,4 @@ try {
 } catch(PDOException $ex) {
     die("Error de conexión: " . $ex->getMessage());
 }
-?>
+// NO AGREGUES LA ETIQUETA DE CIERRE (?>) AQUÍ, DÉJALO ABIERTO PARA EVITAR ERRORES DE ESPACIOS

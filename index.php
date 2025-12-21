@@ -1,7 +1,5 @@
 <?php
 // 1. INICIAR SESIÓN Y CONFIGURACIÓN
-// (Si el header ya inicia sesión, esto no estorba gracias al check de session_status, 
-// pero es buena práctica tenerlo aquí si este archivo actúa como controlador principal)
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -11,14 +9,30 @@ require_once 'config/bd.php';
 $dashboardUrl = "modules/auth/login.php"; 
 $nombreUsuario = "";
 
+// 3. Obtener IDs de cursos que el usuario YA COMPRÓ
+// (Esto soluciona que te salga el botón de comprar cuando ya lo tienes)
+$ids_comprados = [];
 if(isset($_SESSION['usuario_id'])) {
     $nombreUsuario = $_SESSION['nombre'];
+    
+    // Redirección de dashboard
     if($_SESSION['rol_id'] == 1) $dashboardUrl = "modules/admin/dashboard.php";
     elseif($_SESSION['rol_id'] == 2) $dashboardUrl = "modules/docente/dashboard.php"; 
     else $dashboardUrl = "modules/estudiante/dashboard.php";
+
+    // Consulta de compras
+    try {
+        $uid = $_SESSION['usuario_id'];
+        $stmtCompras = $conexion->prepare("SELECT item_id FROM compras WHERE usuario_id = ? AND tipo_item = 'curso'");
+        $stmtCompras->execute([$uid]);
+        $ids_comprados = $stmtCompras->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) { 
+        // Si falla, asumimos que no tiene nada comprado
+        $ids_comprados = []; 
+    }
 }
 
-// 3. CONSULTAS A LA BASE DE DATOS
+// 4. CONSULTAS A LA BASE DE DATOS
 
 // A) Obtener Cursos RECIENTES (Límite 6)
 try {
@@ -35,7 +49,6 @@ try {
     $planes = $conexion->query($sqlPlanes)->fetchAll();
 } catch (Exception $e) { $planes = []; }
 
-// --- IMPORTANTE: Usamos el header.php que modificamos en el paso 1 para mostrar el carrito ---
 require_once 'includes/header.php';
 ?>
 
@@ -141,20 +154,28 @@ require_once 'includes/header.php';
             <?php else: ?>
                 <div class="row row-cols-1 row-cols-md-3 g-4">
                     <?php foreach($cursos as $c): ?>
+                        <?php 
+                            // VERIFICAR SI YA ESTÁ COMPRADO
+                            $yaComprado = in_array($c['id'], $ids_comprados);
+                        ?>
                         <div class="col">
                             <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
                                 <?php 
                                     $ruta_imagen = "uploads/cursos/" . $c['imagen_portada'];
-                                    // Imagen genérica si no hay portada
                                     if (empty($c['imagen_portada']) || !file_exists($ruta_imagen)) {
                                         $ruta_imagen = "https://via.placeholder.com/400x225?text=Curso+EduPlatform";
                                     }
-                                    
-                                    // Asegurar precio numérico para el formulario
                                     $precioCurso = isset($c['precio']) ? $c['precio'] : 0;
                                 ?>
-                                <div class="ratio ratio-16x9">
-                                    <img src="<?php echo $ruta_imagen; ?>" class="card-img-top object-fit-cover" alt="Portada">
+                                <div class="position-relative">
+                                    <div class="ratio ratio-16x9">
+                                        <img src="<?php echo $ruta_imagen; ?>" class="card-img-top object-fit-cover" alt="Portada">
+                                    </div>
+                                    <?php if ($yaComprado): ?>
+                                        <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-success shadow">
+                                            <i class="bi bi-check-circle-fill"></i> Inscrito
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="card-body">
@@ -174,22 +195,26 @@ require_once 'includes/header.php';
                                     </div>
                                     
                                     <div class="d-grid gap-2">
-                                        <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-outline-primary rounded-pill btn-sm fw-bold">
-                                            Ver Detalles
-                                        </a>
-
-                                        <form action="modules/estudiante/carrito_acciones.php" method="POST">
-                                            <input type="hidden" name="action" value="agregar">
-                                            <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
-                                            <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($c['titulo']); ?>">
-                                            <input type="hidden" name="precio" value="<?php echo $precioCurso; ?>">
-                                            <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($c['docente']); ?>">
-                                            <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($c['imagen_portada'] ?? ''); ?>">
-                                            
-                                            <button type="submit" class="btn btn-primary w-100 rounded-pill shadow-sm btn-sm fw-bold">
-                                                <i class="bi bi-cart-plus"></i> Agregar al Carrito
-                                            </button>
-                                        </form>
+                                        <?php if ($yaComprado): ?>
+                                            <a href="modules/estudiante/aula.php?id=<?php echo $c['id']; ?>" class="btn btn-outline-success rounded-pill fw-bold">
+                                                <i class="bi bi-play-circle-fill me-2"></i> Ir al Aula
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-outline-primary rounded-pill btn-sm fw-bold">
+                                                Ver Detalles
+                                            </a>
+                                            <form action="modules/estudiante/carrito_acciones.php" method="POST">
+                                                <input type="hidden" name="action" value="agregar">
+                                                <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                                <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($c['titulo']); ?>">
+                                                <input type="hidden" name="precio" value="<?php echo $precioCurso; ?>">
+                                                <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($c['docente']); ?>">
+                                                <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($c['imagen_portada'] ?? ''); ?>">
+                                                <input type="hidden" name="tipo" value="curso"> <button type="submit" class="btn btn-primary w-100 rounded-pill shadow-sm btn-sm fw-bold">
+                                                    <i class="bi bi-cart-plus"></i> Agregar al Carrito
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                     
                                 </div>
@@ -231,7 +256,6 @@ require_once 'includes/header.php';
                 <div class="row justify-content-center g-4">
                     <?php foreach($planes as $p): ?>
                         <?php 
-                            // Lógica visual simple para resaltar planes intermedios
                             $esRecomendado = ($p['precio'] > 0 && $p['precio'] < 50); 
                             $borde = $esRecomendado ? 'border-primary border-2 shadow' : 'border-0 shadow-sm';
                             $claseTitulo = $esRecomendado ? 'text-primary' : 'text-dark';
@@ -278,54 +302,25 @@ require_once 'includes/header.php';
                 <div class="col-lg-4 col-md-6">
                     <h5 class="text-white fw-bold mb-3"><i class="bi bi-mortarboard-fill text-warning"></i> EduPlatform</h5>
                     <p class="small">Somos una plataforma educativa comprometida con la democratización del conocimiento. Aprende a tu ritmo con los mejores profesionales.</p>
-                    <div class="d-flex gap-3">
-                        <a href="#" class="text-secondary fs-5"><i class="bi bi-facebook"></i></a>
-                        <a href="#" class="text-secondary fs-5"><i class="bi bi-twitter-x"></i></a>
-                        <a href="#" class="text-secondary fs-5"><i class="bi bi-instagram"></i></a>
-                        <a href="#" class="text-secondary fs-5"><i class="bi bi-youtube"></i></a>
-                    </div>
                 </div>
-
-                <div class="col-lg-2 col-md-6">
+                <div class="col-lg-4 col-md-6">
                     <h6 class="text-white fw-bold mb-3">Navegación</h6>
                     <ul class="list-unstyled small">
                         <li class="mb-2"><a href="#inicio" class="text-decoration-none text-secondary">Inicio</a></li>
                         <li class="mb-2"><a href="#cursos" class="text-decoration-none text-secondary">Cursos</a></li>
-                        <li class="mb-2"><a href="#planes" class="text-decoration-none text-secondary">Planes</a></li>
-                        <li class="mb-2"><a href="#biblioteca" class="text-decoration-none text-secondary">Biblioteca</a></li>
                     </ul>
                 </div>
-
-                <div class="col-lg-2 col-md-6">
-                    <h6 class="text-white fw-bold mb-3">Categorías</h6>
-                    <ul class="list-unstyled small">
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-secondary">Desarrollo Web</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-secondary">Diseño Gráfico</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-secondary">Marketing</a></li>
-                        <li class="mb-2"><a href="#" class="text-decoration-none text-secondary">Negocios</a></li>
-                    </ul>
-                </div>
-
                 <div class="col-lg-4 col-md-6">
                     <h6 class="text-white fw-bold mb-3">Mantente Actualizado</h6>
-                    <p class="small">Recibe las últimas noticias y ofertas.</p>
                     <form class="d-flex gap-2">
                         <input type="email" class="form-control form-control-sm" placeholder="Tu correo">
                         <button class="btn btn-warning btn-sm fw-bold">Suscribir</button>
                     </form>
                 </div>
             </div>
-
             <hr class="border-secondary opacity-25">
-            
-            <div class="row align-items-center">
-                <div class="col-md-6 text-center text-md-start small">
-                    &copy; <?php echo date('Y'); ?> EduPlatform. Todos los derechos reservados.
-                </div>
-                <div class="col-md-6 text-center text-md-end small">
-                    <a href="#" class="text-decoration-none text-secondary me-3">Privacidad</a>
-                    <a href="#" class="text-decoration-none text-secondary">Términos</a>
-                </div>
+            <div class="text-center small">
+                &copy; <?php echo date('Y'); ?> EduPlatform. Todos los derechos reservados.
             </div>
         </div>
     </footer>
