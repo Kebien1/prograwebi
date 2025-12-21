@@ -24,6 +24,7 @@ $esEstudiante = false;
 if (isset($_SESSION['usuario_id'])) {
     if ($_SESSION['rol_id'] == 3) {
         $esEstudiante = true;
+        // Verificamos si ya lo compró o se inscribió
         $check = $conexion->prepare("SELECT id FROM compras WHERE usuario_id = ? AND item_id = ? AND tipo_item = 'curso'");
         $check->execute([$_SESSION['usuario_id'], $id_curso]);
         $yaComprado = $check->rowCount() > 0;
@@ -63,7 +64,13 @@ if (isset($_SESSION['usuario_id'])) {
                 <?php endif; ?>
                 
                 <div class="card-body p-4 text-center">
-                    <h2 class="fw-bold text-success my-3">Gratis</h2>
+                    
+                    <?php if($curso['precio'] > 0): ?>
+                        <h2 class="fw-bold text-dark my-3">$<?php echo number_format($curso['precio'], 2); ?></h2>
+                        <p class="text-muted small">Acceso completo al curso</p>
+                    <?php else: ?>
+                        <h2 class="fw-bold text-success my-3">Gratis</h2>
+                    <?php endif; ?>
                     
                     <div class="d-grid gap-2">
                         <?php if(!isset($_SESSION['usuario_id'])): ?>
@@ -73,10 +80,28 @@ if (isset($_SESSION['usuario_id'])) {
                             <p class="small text-muted mt-2">¿No tienes cuenta? <a href="../../modules/auth/registro.php">Regístrate gratis</a></p>
 
                         <?php elseif($esEstudiante): ?>
+                            
                             <?php if($yaComprado): ?>
                                 <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-success btn-lg fw-bold">Ir al Aula</a>
+                            
                             <?php else: ?>
-                                <a href="procesar_compra.php?tipo=curso&id=<?php echo $curso['id']; ?>" class="btn btn-primary btn-lg fw-bold shadow-sm">Inscribirse Ahora</a>
+                                <?php if($curso['precio'] > 0): ?>
+                                    <form action="carrito_acciones.php" method="POST">
+                                        <input type="hidden" name="accion" value="agregar">
+                                        <input type="hidden" name="tipo" value="curso"> <input type="hidden" name="id" value="<?php echo $curso['id']; ?>">
+                                        <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($curso['titulo']); ?>">
+                                        <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
+                                        
+                                        <button type="submit" class="btn btn-primary btn-lg fw-bold shadow-sm w-100">
+                                            <i class="bi bi-cart-plus"></i> Comprar Curso
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <a href="procesar_compra.php?tipo=curso&id=<?php echo $curso['id']; ?>" class="btn btn-outline-primary btn-lg fw-bold shadow-sm">
+                                        Inscribirse Gratis
+                                    </a>
+                                <?php endif; ?>
+
                             <?php endif; ?>
 
                         <?php else: ?>
