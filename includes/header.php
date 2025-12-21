@@ -4,16 +4,18 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // DEFINIR RUTA BASE
-// Primero intentamos usar la constante definida en config/bd.php
 if (defined('BASE_URL')) {
     $base_url = BASE_URL;
 } else {
-    // Si no está definida, usamos una detección automática o fallback
     $base_url = 'https://prograweb1.infinityfreeapp.com'; 
 }
-
-// Asegurarnos de que no tenga una barra al final para evitar errores de doble barra //
 $base_url = rtrim($base_url, '/');
+
+// --- LÓGICA DEL CARRITO (NUEVO) ---
+$num_items_carrito = 0;
+if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
+    $num_items_carrito = count($_SESSION['carrito']);
+}
 ?>
 <!doctype html>
 <html lang="es">
@@ -35,13 +37,18 @@ $base_url = rtrim($base_url, '/');
         .navbar {
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        /* Efecto hover suave para tarjetas en otras vistas */
         .hover-scale { transition: transform 0.2s; }
         .hover-scale:hover { transform: scale(1.02); }
         
-        /* Asegurar que el footer se quede abajo */
         .flex-shrink-0 {
             flex: 1;
+        }
+        /* Estilo para el contador del carrito */
+        .badge-carrito {
+            font-size: 0.75rem;
+            position: relative;
+            top: -10px;
+            left: -5px;
         }
     </style>
 </head>
@@ -66,20 +73,18 @@ $base_url = rtrim($base_url, '/');
 
         <?php if(isset($_SESSION['usuario_id'])): ?>
             
-            <?php if($_SESSION['rol_id'] == 1): ?>
+            <?php if($_SESSION['rol_id'] == 1): // ADMIN ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/dashboard.php">Panel</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/usuarios.php">Usuarios</a>
                 </li>
-                
                 <li class="nav-item">
                     <a class="nav-link fw-bold text-warning" href="<?php echo $base_url; ?>/modules/admin/planes.php">
                         <i class="bi bi-star-fill"></i> Planes
                     </a>
                 </li>
-                
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                         Cursos
@@ -91,7 +96,7 @@ $base_url = rtrim($base_url, '/');
                 </li>
             <?php endif; ?>
 
-            <?php if($_SESSION['rol_id'] == 3): ?>
+            <?php if($_SESSION['rol_id'] == 3): // ESTUDIANTE ?>
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/dashboard.php">Mi Panel</a>
                 </li>
@@ -107,6 +112,18 @@ $base_url = rtrim($base_url, '/');
       </ul>
 
       <ul class="navbar-nav ms-auto">
+        
+        <li class="nav-item me-2">
+            <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/carrito_ver.php">
+                <i class="bi bi-cart3 fs-5"></i> 
+                <?php if($num_items_carrito > 0): ?>
+                    <span class="badge bg-danger rounded-pill badge-carrito">
+                        <?php echo $num_items_carrito; ?>
+                    </span>
+                <?php endif; ?>
+            </a>
+        </li>
+
         <?php if(isset($_SESSION['usuario_id'])): ?>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">
@@ -116,11 +133,9 @@ $base_url = rtrim($base_url, '/');
                     
                     <?php if($_SESSION['rol_id'] == 3): ?>
                         <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/estudiante/perfil.php">Mi Perfil</a></li>
-                        
                         <li><a class="dropdown-item" href="<?php echo $base_url; ?>/modules/estudiante/suscripcion.php">
                             <i class="bi bi-credit-card-2-front"></i> Mi Suscripción
                         </a></li>
-                        
                         <li><hr class="dropdown-divider"></li>
                     <?php endif; ?>
                     

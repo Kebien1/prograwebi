@@ -1,7 +1,7 @@
 <?php
 require_once '../../config/bd.php';
 require_once '../../includes/security.php';
-verificarRol(3); 
+// verificarRol(3); // Puedes descomentar esto si quieres forzar login para ver el catálogo
 require_once '../../includes/header.php';
 
 // Buscador
@@ -19,30 +19,19 @@ $cursos = $stmt->fetchAll();
 
 // Libros
 $libros = $conexion->query("SELECT * FROM libros ORDER BY id DESC")->fetchAll();
-
-// Verificar lo que ya tiene
-$mis_compras = $conexion->prepare("SELECT item_id, tipo_item FROM compras WHERE usuario_id = ?");
-$mis_compras->execute([$_SESSION['usuario_id']]);
-$comprados_raw = $mis_compras->fetchAll();
-$comprados = [];
-foreach ($comprados_raw as $c) {
-    $comprados[$c['tipo_item']][$c['item_id']] = true;
-}
 ?>
 
-<div class="container mt-4">
+<div class="container mt-4 mb-5">
     <div class="text-center mb-4">
         <h2 class="fw-bold text-dark">Catálogo de Aprendizaje</h2>
-        <p class="text-muted">Todos nuestros recursos son de acceso libre.</p>
+        <p class="text-muted">Explora nuestros cursos y recursos disponibles.</p>
     </div>
 
     <div class="row justify-content-center mb-5">
         <div class="col-md-6">
             <form action="" method="GET" class="d-flex gap-2">
-                <input type="text" name="q" class="form-control form-control-lg" 
-                       placeholder="Buscar cursos..." 
-                       value="<?php echo htmlspecialchars($busqueda); ?>">
-                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-search"></i></button>
+                <input type="text" name="q" class="form-control" placeholder="Buscar..." value="<?php echo htmlspecialchars($busqueda); ?>">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
             </form>
         </div>
     </div>
@@ -50,31 +39,38 @@ foreach ($comprados_raw as $c) {
     <h4 class="fw-bold mb-3 text-primary border-bottom pb-2"><i class="bi bi-camera-video"></i> Cursos Disponibles</h4>
     
     <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
-        <?php foreach($cursos as $c): ?>
-            <?php $yaTiene = isset($comprados['curso'][$c['id']]); ?>
+        <?php foreach($cursos as $c): 
+            $precio = isset($c['precio']) ? $c['precio'] : 0;
+            $docente = isset($c['docente']) ? $c['docente'] : 'Instructor EduPlatform';
+            // Si la consulta original no trae el nombre del docente (JOIN), usar un valor por defecto o hacer el JOIN arriba.
+        ?>
             <div class="col">
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="badge bg-primary bg-opacity-10 text-primary">Curso</span>
-                            <span class="badge bg-success">Gratis</span>
+                            <span class="fw-bold text-success">$<?php echo number_format($precio, 2); ?></span>
                         </div>
                         <h5 class="card-title fw-bold text-truncate"><?php echo htmlspecialchars($c['titulo']); ?></h5>
                         <p class="card-text text-muted small text-truncate"><?php echo htmlspecialchars($c['descripcion']); ?></p>
                     </div>
+                    
                     <div class="card-footer bg-white border-0 pb-4 pt-0">
                         <div class="d-grid gap-2">
-                            <a href="ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-light fw-bold text-primary border">Ver Detalles</a>
+                            <a href="ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-light fw-bold text-primary border btn-sm">Ver Detalles</a>
                             
-                            <?php if($yaTiene): ?>
-                                <a href="aula.php?id=<?php echo $c['id']; ?>" class="btn btn-success border-0">
-                                    <i class="bi bi-play-circle"></i> Ir al Aula
-                                </a>
-                            <?php else: ?>
-                                <a href="procesar_compra.php?tipo=curso&id=<?php echo $c['id']; ?>" class="btn btn-primary shadow-sm">
-                                    Inscribirse Gratis
-                                </a>
-                            <?php endif; ?>
+                            <form action="carrito_acciones.php" method="POST">
+                                <input type="hidden" name="action" value="agregar">
+                                <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($c['titulo']); ?>">
+                                <input type="hidden" name="precio" value="<?php echo $precio; ?>">
+                                <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($docente); ?>">
+                                <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($c['imagen_portada'] ?? ''); ?>">
+                                
+                                <button type="submit" class="btn btn-primary w-100 shadow-sm btn-sm">
+                                    <i class="bi bi-cart-plus"></i> Agregar al Carrito
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -82,35 +78,39 @@ foreach ($comprados_raw as $c) {
         <?php endforeach; ?>
     </div>
 
-    <h4 class="fw-bold mb-3 text-success border-bottom pb-2"><i class="bi bi-file-earmark-pdf"></i> Libros Digitales</h4>
+    <?php if(!empty($libros)): ?>
+    <h4 class="fw-bold mb-3 text-success border-bottom pb-2"><i class="bi bi-book"></i> Libros Digitales</h4>
     <div class="row row-cols-1 row-cols-md-3 g-4">
-        <?php foreach($libros as $l): ?>
-            <?php $yaTiene = isset($comprados['libro'][$l['id']]); ?>
+        <?php foreach($libros as $l): 
+             $precioLibro = isset($l['precio']) ? $l['precio'] : 0;
+        ?>
             <div class="col">
                 <div class="card h-100 border-0 shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <span class="badge bg-success bg-opacity-10 text-success">E-Book</span>
-                            <span class="badge bg-success">Gratis</span>
+                            <span class="fw-bold text-success">$<?php echo number_format($precioLibro, 2); ?></span>
                         </div>
                         <h5 class="card-title fw-bold text-truncate"><?php echo htmlspecialchars($l['titulo']); ?></h5>
                         <p class="small text-muted mb-0">Autor: <?php echo htmlspecialchars($l['autor']); ?></p>
                     </div>
                     <div class="card-footer bg-white border-0 pb-3">
-                        <?php if($yaTiene): ?>
-                            <a href="ver_archivo.php?id=<?php echo $l['id']; ?>" target="_blank" class="btn btn-secondary w-100 rounded-pill">
-                                <i class="bi bi-book"></i> Leer Ahora
-                            </a>
-                        <?php else: ?>
-                            <a href="procesar_compra.php?tipo=libro&id=<?php echo $l['id']; ?>" class="btn btn-outline-success w-100 rounded-pill">
-                                Obtener PDF
-                            </a>
-                        <?php endif; ?>
+                        <form action="carrito_acciones.php" method="POST">
+                            <input type="hidden" name="action" value="agregar">
+                            <input type="hidden" name="id" value="L-<?php echo $l['id']; ?>"> <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($l['titulo']); ?>">
+                            <input type="hidden" name="precio" value="<?php echo $precioLibro; ?>">
+                            <input type="hidden" name="instructor" value="Autor: <?php echo htmlspecialchars($l['autor']); ?>">
+                            <input type="hidden" name="imagen" value=""> <button type="submit" class="btn btn-outline-success w-100 rounded-pill btn-sm">
+                                <i class="bi bi-cart-plus"></i> Agregar E-Book
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
+
 </div>
 <?php 
 require_once '../../includes/footer_admin.php'; 

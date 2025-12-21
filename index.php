@@ -1,6 +1,10 @@
 <?php
 // 1. INICIAR SESIÓN Y CONFIGURACIÓN
-session_start();
+// (Si el header ya inicia sesión, esto no estorba gracias al check de session_status, 
+// pero es buena práctica tenerlo aquí si este archivo actúa como controlador principal)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'config/bd.php';
 
 // 2. Determinar URL del Dashboard según el rol
@@ -10,7 +14,7 @@ $nombreUsuario = "";
 if(isset($_SESSION['usuario_id'])) {
     $nombreUsuario = $_SESSION['nombre'];
     if($_SESSION['rol_id'] == 1) $dashboardUrl = "modules/admin/dashboard.php";
-    elseif($_SESSION['rol_id'] == 2) $dashboardUrl = "modules/docente/dashboard.php"; // Si existiera rol docente separado
+    elseif($_SESSION['rol_id'] == 2) $dashboardUrl = "modules/docente/dashboard.php"; 
     else $dashboardUrl = "modules/estudiante/dashboard.php";
 }
 
@@ -25,68 +29,17 @@ try {
     $cursos = $conexion->query($sqlCursos)->fetchAll();
 } catch (Exception $e) { $cursos = []; }
 
-// B) Obtener Planes de Suscripción (Nuevo tema añadido)
+// B) Obtener Planes de Suscripción
 try {
     $sqlPlanes = "SELECT * FROM planes ORDER BY precio ASC";
     $planes = $conexion->query($sqlPlanes)->fetchAll();
 } catch (Exception $e) { $planes = []; }
 
+// --- IMPORTANTE: Usamos el header.php que modificamos en el paso 1 para mostrar el carrito ---
+require_once 'includes/header.php';
 ?>
-<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>EduPlatform | Aprende sin límites</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-</head>
-<body class="bg-light d-flex flex-column min-vh-100">
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow">
-        <div class="container">
-            <a class="navbar-brand text-warning fw-bold" href="#">
-                <i class="bi bi-mortarboard-fill"></i> EduPlatform
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="menuPrincipal">
-                <ul class="navbar-nav ms-auto gap-2 align-items-center">
-                    <li class="nav-item"><a class="nav-link" href="#inicio">Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#cursos">Cursos</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#planes">Planes</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#biblioteca">Biblioteca</a></li>
-                    
-                    <?php if(isset($_SESSION['usuario_id'])): ?>
-                        <li class="nav-item ms-lg-3">
-                            <div class="dropdown">
-                                <button class="btn btn-outline-light dropdown-toggle rounded-pill px-4" type="button" data-bs-toggle="dropdown">
-                                    <i class="bi bi-person-circle me-1"></i> <?php echo htmlspecialchars($nombreUsuario); ?>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="<?php echo $dashboardUrl; ?>">Ir a mi Panel</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="modules/auth/logout.php">Cerrar Sesión</a></li>
-                                </ul>
-                            </div>
-                        </li>
-                    <?php else: ?>
-                        <li class="nav-item ms-lg-3">
-                            <a href="modules/auth/login.php" class="btn btn-outline-light rounded-pill px-4 me-2">Ingresar</a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="modules/auth/registro.php" class="btn btn-warning rounded-pill px-4 fw-bold text-dark">Registro Gratis</a>
-                        </li>
-                    <?php endif; ?>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <header id="inicio" class="carousel slide carousel-fade" data-bs-ride="carousel">
+<header id="inicio" class="carousel slide carousel-fade" data-bs-ride="carousel">
         <div class="carousel-indicators">
             <button type="button" data-bs-target="#inicio" data-bs-slide-to="0" class="active"></button>
             <button type="button" data-bs-target="#inicio" data-bs-slide-to="1"></button>
@@ -196,6 +149,9 @@ try {
                                     if (empty($c['imagen_portada']) || !file_exists($ruta_imagen)) {
                                         $ruta_imagen = "https://via.placeholder.com/400x225?text=Curso+EduPlatform";
                                     }
+                                    
+                                    // Asegurar precio numérico para el formulario
+                                    $precioCurso = isset($c['precio']) ? $c['precio'] : 0;
                                 ?>
                                 <div class="ratio ratio-16x9">
                                     <img src="<?php echo $ruta_imagen; ?>" class="card-img-top object-fit-cover" alt="Portada">
@@ -216,9 +172,26 @@ try {
                                         <div class="bg-light rounded-circle p-2 me-2"><i class="bi bi-person text-secondary"></i></div>
                                         <small class="text-muted fw-bold"><?php echo htmlspecialchars($c['docente']); ?></small>
                                     </div>
-                                    <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-primary w-100 rounded-pill fw-bold shadow-sm">
-                                        Ver Detalles
-                                    </a>
+                                    
+                                    <div class="d-grid gap-2">
+                                        <a href="modules/estudiante/ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-outline-primary rounded-pill btn-sm fw-bold">
+                                            Ver Detalles
+                                        </a>
+
+                                        <form action="modules/estudiante/carrito_acciones.php" method="POST">
+                                            <input type="hidden" name="action" value="agregar">
+                                            <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                            <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($c['titulo']); ?>">
+                                            <input type="hidden" name="precio" value="<?php echo $precioCurso; ?>">
+                                            <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($c['docente']); ?>">
+                                            <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($c['imagen_portada'] ?? ''); ?>">
+                                            
+                                            <button type="submit" class="btn btn-primary w-100 rounded-pill shadow-sm btn-sm fw-bold">
+                                                <i class="bi bi-cart-plus"></i> Agregar al Carrito
+                                            </button>
+                                        </form>
+                                    </div>
+                                    
                                 </div>
                             </div>
                         </div>
