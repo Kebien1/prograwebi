@@ -1,127 +1,236 @@
 <?php
-// modules/estudiante/aula.php
+session_start();
 require_once '../../config/bd.php';
-require_once '../../includes/security.php';
-require_once '../../includes/header.php';
 
-if (!isset($_GET['id'])) { header("Location: dashboard.php"); exit; }
+// 1. Validaciones básicas de seguridad
+$id_curso = $_GET['id'] ?? 0;
+$indice_leccion = $_GET['l'] ?? 0; // Índice de la lección actual (empieza en 0)
 
-$id_curso = $_GET['id'];
-$uid = $_SESSION['usuario_id'];
-$rol = $_SESSION['rol_id'];
-
-// 1. Datos del Curso
-$stmt = $conexion->prepare("SELECT * FROM cursos WHERE id=?");
-$stmt->execute([$id_curso]);
-$curso = $stmt->fetch();
-if(!$curso) die("Curso no existe");
-
-// 2. Verificar Compra
-$acceso_total = false;
-if ($rol == 1 || $rol == 2) {
-    $acceso_total = true; // Admin/Profe ven todo
-} else {
-    // Buscar si compró el curso
-    $chk = $conexion->prepare("SELECT id FROM compras WHERE usuario_id=? AND item_id=? AND tipo_item='curso'");
-    $chk->execute([$uid, $id_curso]);
-    if ($chk->rowCount() > 0) $acceso_total = true;
+if (!$id_curso) {
+    header("Location: ../../index.php");
+    exit;
 }
 
-// 3. Lecciones
-$lecciones = $conexion->prepare("SELECT * FROM lecciones WHERE curso_id=? ORDER BY id ASC");
-$lecciones->execute([$id_curso]);
-$lista = $lecciones->fetchAll();
+// Validar si el usuario está logueado
+$usuario_id = $_SESSION['usuario_id'] ?? 0;
+$rol_id = $_SESSION['rol_id'] ?? 0;
 
-// 4. Lección actual
-$idx = isset($_GET['l']) ? (int)$_GET['l'] : 0;
-if ($idx < 0 || $idx >= count($lista)) $idx = 0;
-$actual = $lista[$idx] ?? null;
+// 2. Obtener datos del curso
+$stmtCurso = $conexion->prepare("SELECT * FROM cursos WHERE id = ?");
+$stmtCurso->execute([$id_curso]);
+$curso = $stmtCurso->fetch();
 
-// 5. Permiso para ver el video actual
-$puede_ver = false;
-if ($actual) {
-    if ($acceso_total) { $puede_ver = true; } // Pagó todo
-    elseif ($actual['es_gratis'] == 1) { $puede_ver = true; } // Es vista previa
+if (!$curso) { echo "Curso no encontrado."; exit; }
+
+// 3. Obtener TODAS las lecciones del curso
+$stmtLecciones = $conexion->prepare("SELECT * FROM lecciones WHERE curso_id = ? ORDER BY id ASC");
+$stmtLecciones->execute([$id_curso]);
+$lecciones = $stmtLecciones->fetchAll();
+
+if (count($lecciones) == 0) { echo "Este curso aún no tiene lecciones."; exit; }
+
+// Validar que el índice solicitado exista
+if (!isset($lecciones[$indice_leccion])) {
+    $indice_leccion = 0; // Si el índice no existe, volver al primero
 }
+$leccionActual = $lecciones[$indice_leccion];
+
+
+// 4. Lógica de Permisos (CRUCIAL)
+$acceso_total = false; // ¿Compró el curso?
+$puede_ver_video_actual = false; // ¿Puede ver ESTE video específico?
+
+if ($rol_id == 1 || $rol_id == 2) {
+    // Admin y Docentes siempre tienen acceso total
+    $acceso_total = true;
+    $puede_ver_video_actual = true;
+} elseif ($usuario_id > 0) {
+    // Estudiantes: Verificar compra
+    $stmtCompra = $conexion->prepare("SELECT id FROM compras WHERE usuario_id = ? AND item_id = ? AND tipo_item = 'curso'");
+    $stmtCompra->execute([$usuario_id, $id_curso]);
+    if ($stmtCompra->rowCount() > 0) {
+        $acceso_total = true;
+    }
+}
+
+// Si tiene acceso total, puede ver cualquier video.
+// Si NO tiene acceso total, solo puede ver si el video actual es gratis.
+if ($acceso_total) {
+    $puede_ver_video_actual = true;
+} elseif ($leccionActual['es_gratis'] == 1) {
+    $puede_ver_video_actual = true;
+}
+
+// Indices para navegación anterior/siguiente
+$indice_ant = ($indice_leccion > 0) ? $indice_leccion - 1 : null;
+$indice_sig = ($indice_leccion < count($lecciones) - 1) ? $indice_leccion + 1 : null;
+
+require_once '../../includes/header.php'; 
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-3 bg-white border-end px-0" style="min-height:90vh;">
-            <div class="p-3 border-bottom bg-light">
-                <h6 class="fw-bold mb-0"><?php echo htmlspecialchars($curso['titulo']); ?></h6>
-                <?php if($acceso_total): ?>
-                    <span class="badge bg-success mt-2">Curso Comprado</span>
-                <?php else: ?>
-                    <span class="badge bg-warning text-dark mt-2">Vista Previa</span>
-                <?php endif; ?>
-            </div>
-            <div class="list-group list-group-flush">
-                <?php foreach($lista as $i => $l): ?>
-                    <?php 
-                        $active = ($i === $idx) ? 'active' : '';
-                        $bloq = (!$acceso_total && $l['es_gratis'] == 0); // Bloqueado si no pagó Y no es gratis
-                        $icono = $bloq ? '<i class="bi bi-lock-fill text-muted"></i>' : '<i class="bi bi-play-circle-fill text-success"></i>';
+<style>
+    /* Contenedor principal del sidebar oscuro */
+    .sidebar-oscuro {
+        background-color: #121212; /* Fondo muy oscuro, casi negro */
+        color: #e0e0e0; /* Texto claro */
+    }
+    
+    /* Cabecera del sidebar */
+    .sidebar-oscuro-header {
+        background-color: #1a1a1a;
+        border-bottom: 1px solid #333;
+        padding: 1.5rem;
+    }
+
+    /* Items de la lista normal */
+    .sidebar-oscuro .list-group-item {
+        background-color: transparent; /* Hereda el fondo oscuro */
+        border: none;
+        border-bottom: 1px solid #2a2a2a; /* Separador sutil */
+        color: #b3b3b3; /* Texto gris claro para items no activos */
+        transition: all 0.2s ease;
+    }
+    
+    /* Hover sobre los items */
+    .sidebar-oscuro .list-group-item-action:hover {
+        background-color: #2a2a2a;
+        color: #fff;
+    }
+
+    /* Item ACTIVO (el video que se está viendo) */
+    .sidebar-oscuro .list-group-item.active {
+        background-color: #3700b3; /* Un tono morado/azul oscuro profesional (puedes cambiarlo por tu color primario) */
+        color: #fff;
+        border-color: transparent;
+        font-weight: bold;
+    }
+
+    /* Items BLOQUEADOS (candado) */
+    .sidebar-oscuro .list-group-item.disabled {
+        opacity: 0.5;
+        background-color: transparent;
+        color: #777;
+        cursor: not-allowed;
+    }
+</style>
+
+
+<div class="container-fluid p-0 bg-light overflow-hidden" style="height: calc(100vh - 60px);"> <div class="row g-0 h-100">
+        
+        <div class="col-md-8 col-lg-9 bg-black p-0 d-flex flex-column align-items-center justify-content-center" style="min-height: 300px;">
+            <?php if ($puede_ver_video_actual): ?>
+                <div class="ratio ratio-16x9 w-100" style="max-height: 100%;">
+                     <?php 
+                        // Función auxiliar simple para detectar tipo de video (YouTube vs local)
+                        $url = $leccionActual['url_video'];
+                        $esYoutube = (strpos($url, 'youtube.com') !== false || strpos($url, 'youtu.be') !== false);
                     ?>
-                    <a href="aula.php?id=<?php echo $id_curso; ?>&l=<?php echo $i; ?>" class="list-group-item list-group-item-action d-flex justify-content-between <?php echo $active; ?>">
-                        <span><?php echo $i+1 . ". " . htmlspecialchars($l['titulo']); ?></span>
-                        <span><?php echo $icono; ?></span>
+
+                    <?php if($esYoutube): ?>
+                        <?php
+                            // Extraer ID de YouTube de forma sencilla
+                            $videoId = '';
+                            if(preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i', $url, $match)) {
+                                $videoId = $match[1];
+                            }
+                        ?>
+                        <iframe src="https://www.youtube.com/embed/<?php echo $videoId; ?>?rel=0&modestbranding=1" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    <?php else: ?>
+                        <video src="<?php echo $url; ?>" controls controlsList="nodownload" class="w-100 h-100" style="object-fit: contain;"></video>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                 <div class="text-center text-white p-5">
+                    <i class="bi bi-lock-fill display-1 text-secondary mb-4"></i>
+                    <h2 class="fw-bold">Contenido Bloqueado</h2>
+                    <p class="lead mb-4">Esta lección es parte del contenido premium del curso.</p>
+                    <?php if(!$usuario_id): ?>
+                         <a href="../../modules/auth/login.php" class="btn btn-primary btn-lg">Inicia Sesión para Comprar</a>
+                    <?php elseif($esEstudiante && !$acceso_total): ?>
+                        <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="btn btn-success btn-lg fw-bold">
+                            <i class="bi bi-cart-fill"></i> Comprar Curso Completo
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="col-md-4 col-lg-3 sidebar-oscuro overflow-auto h-100 shadow-lg">
+            
+            <div class="sidebar-oscuro-header d-flex justify-content-between align-items-center sticky-top">
+                <h5 class="mb-0 fw-bold">Contenido del Curso</h5>
+                <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="text-decoration-none text-muted small">
+                    <i class="bi bi-arrow-left"></i> Volver info
+                </a>
+            </div>
+
+            <div class="p-3 bg-dark border-bottom border-secondary d-md-none">
+                 <span class="badge bg-primary mb-2">Reproduciendo ahora:</span>
+                 <h6 class="text-white mb-0"><?php echo htmlspecialchars($leccionActual['titulo']); ?></h6>
+            </div>
+
+            <div class="list-group list-group-flush">
+                <?php foreach ($lecciones as $index => $leccion): ?>
+                    <?php 
+                        $isActive = ($index == $indice_leccion);
+                        $isLocked = !($acceso_total || $leccion['es_gratis'] == 1);
+                        
+                        // Determinamos el estado y el icono
+                        $itemClass = $isActive ? 'active' : '';
+                        if ($isLocked) $itemClass .= ' disabled';
+
+                        $icono = $isLocked ? 'bi bi-lock-fill' : ($isActive ? 'bi bi-play-fill' : 'bi bi-play-circle');
+                        $colorIcono = $isLocked ? 'text-muted' : ($isActive ? 'text-white' : 'text-secondary');
+                        if(!$isLocked && $leccion['es_gratis']) $colorIcono = 'text-success'; // Icono verde si es gratis y no está bloqueado
+                    ?>
+                    
+                    <a href="<?php echo $isLocked ? '#' : '?id='.$id_curso.'&l='.$index; ?>" 
+                       class="list-group-item list-group-item-action d-flex align-items-center p-3 <?php echo $itemClass; ?>"
+                       <?php echo $isLocked ? 'tabindex="-1" aria-disabled="true"' : ''; ?>>
+                        
+                        <i class="<?php echo $icono . ' ' . $colorIcono; ?> fs-5 me-3"></i>
+                        
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="leccion-titulo lh-sm">
+                                    <?php echo $index + 1 . ". " . htmlspecialchars($leccion['titulo']); ?>
+                                </span>
+                                <?php if(!$acceso_total && $leccion['es_gratis'] == 1 && !$isActive): ?>
+                                    <span class="badge bg-success ms-2 rounded-pill" style="font-size: 0.7rem;">Gratis</span>
+                                <?php endif; ?>
+                            </div>
+                            </div>
                     </a>
                 <?php endforeach; ?>
             </div>
-        </div>
+            
+            <div class="p-3 mt-auto border-top border-secondary sticky-bottom" style="background-color: #1a1a1a;">
+                 <div class="d-flex justify-content-between gap-2">
+                    <?php if ($indice_ant !== null): ?>
+                        <a href="?id=<?php echo $id_curso; ?>&l=<?php echo $indice_ant; ?>" class="btn btn-outline-light btn-sm flex-grow-1">
+                            <i class="bi bi-chevron-left"></i> Anterior
+                        </a>
+                    <?php else: ?>
+                        <button class="btn btn-outline-secondary btn-sm flex-grow-1" disabled><i class="bi bi-chevron-left"></i> Anterior</button>
+                    <?php endif; ?>
 
-        <div class="col-md-9 bg-light p-0">
-            <?php if($actual): ?>
-                
-                <?php if($puede_ver): ?>
-                    <div class="ratio ratio-16x9 bg-black">
-                        <iframe src="<?php echo htmlspecialchars($actual['video_url']); ?>" allowfullscreen></iframe>
-                    </div>
-                    <div class="p-4 bg-white">
-                        <h2><?php echo htmlspecialchars($actual['titulo']); ?></h2>
-                        <p><?php echo nl2br(htmlspecialchars($actual['descripcion'])); ?></p>
-                        
-                        <?php if(!$acceso_total): ?>
-                            <div class="alert alert-info d-flex justify-content-between align-items-center">
-                                <span>¿Te gusta? Compra el curso completo por <strong>$<?php echo $curso['precio']; ?></strong></span>
-                                <form action="carrito_acciones.php" method="POST">
-                                    <input type="hidden" name="accion" value="agregar">
-                                    <input type="hidden" name="tipo" value="curso">
-                                    <input type="hidden" name="id" value="<?php echo $curso['id']; ?>">
-                                    <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($curso['titulo']); ?>">
-                                    <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
-                                    <button class="btn btn-primary">Comprar Ahora</button>
-                                </form>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                <?php else: ?>
-                    <div class="d-flex align-items-center justify-content-center" style="height:80vh;">
-                        <div class="text-center bg-white p-5 shadow rounded">
-                            <i class="bi bi-lock-fill text-danger display-1"></i>
-                            <h2 class="mt-3">Contenido Bloqueado</h2>
-                            <p class="text-muted">Esta lección es exclusiva para estudiantes inscritos.</p>
-                            <h3 class="text-primary mb-4">$<?php echo number_format($curso['precio'], 2); ?></h3>
-                            
-                            <form action="carrito_acciones.php" method="POST">
-                                <input type="hidden" name="accion" value="agregar">
-                                <input type="hidden" name="tipo" value="curso">
-                                <input type="hidden" name="id" value="<?php echo $curso['id']; ?>">
-                                <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($curso['titulo']); ?>">
-                                <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
-                                <button class="btn btn-success btn-lg w-100 shadow">Desbloquear Curso Completo</button>
-                            </form>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-            <?php else: ?>
-                <div class="p-5 text-center">No hay clases aún.</div>
-            <?php endif; ?>
-        </div>
-    </div>
+                    <?php if ($indice_sig !== null): ?>
+                        <a href="?id=<?php echo $id_curso; ?>&l=<?php echo $indice_sig; ?>" class="btn btn-primary btn-sm flex-grow-1 fw-bold">
+                            Siguiente <i class="bi bi-chevron-right"></i>
+                        </a>
+                    <?php else: ?>
+                         <button class="btn btn-outline-secondary btn-sm flex-grow-1" disabled>Siguiente <i class="bi bi-chevron-right"></i></button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+        </div> </div>
 </div>
 
-<?php require_once '../../includes/footer_admin.php'; ?>
+<?php 
+// Nota: No incluimos el footer estándar en el aula para maximizar el espacio
+// require_once '../../includes/footer_admin.php'; 
+?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
