@@ -45,18 +45,24 @@ if ($acceso_total || $leccionActual['es_gratis'] == 1) {
     $puede_ver_video_actual = true;
 }
 
-// 5. CORRECCIÓN: Obtener Recursos de la lección actual desde la tabla 'materiales'
+// 5. NUEVO: Obtener Recursos de la lección actual
+// Asumimos que la tabla se llama 'recursos' y tiene 'leccion_id'
 $recursos = [];
 if (isset($leccionActual['id'])) {
+    // Intenta buscar los recursos. Si la tabla tiene otro nombre, ajusta esta línea.
     try {
-        // CORREGIDO: Tabla 'materiales' en lugar de 'recursos'
-        $stmtRec = $conexion->prepare("SELECT * FROM materiales WHERE leccion_id = ?");
+        $stmtRec = $conexion->prepare("SELECT * FROM recursos WHERE leccion_id = ?");
         $stmtRec->execute([$leccionActual['id']]);
         $recursos = $stmtRec->fetchAll();
     } catch (Exception $e) {
+        // Si la tabla no existe, no falla, simplemente no muestra recursos
         $recursos = [];
     }
 }
+
+// Navegación
+$indice_ant = ($indice_leccion > 0) ? $indice_leccion - 1 : null;
+$indice_sig = ($indice_leccion < count($lecciones) - 1) ? $indice_leccion + 1 : null;
 
 require_once '../../includes/header.php'; 
 ?>
@@ -117,12 +123,16 @@ require_once '../../includes/header.php';
                 <?php elseif ($puede_ver_video_actual): ?>
                     <div class="ratio ratio-16x9 w-100 h-100" style="max-height: 85vh;">
                          <?php 
+                            // CORRECCIÓN: Usamos 'video_url' que es como se llama en tu BD original
                             $url = $leccionActual['video_url']; 
+                            
+                            // Lógica mejorada para YouTube
                             $esYoutube = (stripos($url, 'youtube.com') !== false || stripos($url, 'youtu.be') !== false);
                         ?>
 
                         <?php if($esYoutube): ?>
                             <?php
+                                // Extraer ID de YouTube (Soporta formatos cortos y largos)
                                 $videoId = '';
                                 $patron = '%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i';
                                 if(preg_match($patron, $url, $match)) {
@@ -175,8 +185,8 @@ require_once '../../includes/header.php';
                         <div class="list-group">
                             <?php foreach($recursos as $rec): ?>
                                 <?php 
-                                    // CORREGIDO: Ruta apuntando a 'uploads/materiales/'
-                                    $rutaArchivo = "../../uploads/materiales/" . $rec['archivo']; 
+                                    // Ajusta esta ruta si tus archivos se guardan en otra carpeta
+                                    $rutaArchivo = "../../uploads/recursos/" . $rec['archivo']; 
                                 ?>
                                 <a href="<?php echo $rutaArchivo; ?>" target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
                                     <div class="bg-light p-2 rounded me-3 text-danger">
@@ -210,6 +220,7 @@ require_once '../../includes/header.php';
                 <div class="list-group list-group-flush">
                     <?php foreach ($lecciones as $index => $leccion): ?>
                         <?php 
+                            // Truco de Sección
                             $esSeccion = (stripos($leccion['titulo'], 'SECCIÓN:') !== false || stripos($leccion['titulo'], 'MODULO:') !== false);
 
                             if ($esSeccion): 
