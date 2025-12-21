@@ -237,3 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

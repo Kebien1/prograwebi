@@ -112,3 +112,6 @@ foreach ($comprados_raw as $c) {
         <?php endforeach; ?>
     </div>
 </div>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

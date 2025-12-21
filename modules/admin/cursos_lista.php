@@ -101,3 +101,6 @@ $cursos = $conexion->query($sql)->fetchAll();
         </div>
     <?php endif; ?>
 </div>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

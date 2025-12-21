@@ -103,3 +103,6 @@ $totalLecciones = $conexion->query("SELECT COUNT(*) FROM lecciones")->fetchColum
         </div>
     </div>
 </div>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

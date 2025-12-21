@@ -111,3 +111,6 @@ $misLibros = $listaLibros->fetchAll();
     </div>
 </div>
 
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>
