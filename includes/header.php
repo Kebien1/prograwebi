@@ -7,12 +7,11 @@ if (session_status() === PHP_SESSION_NONE) {
 if (defined('BASE_URL')) {
     $base_url = BASE_URL;
 } else {
-    // Ajusta esto si tu dominio cambia
     $base_url = 'https://prograweb1.infinityfreeapp.com'; 
 }
 $base_url = rtrim($base_url, '/');
 
-// --- LÓGICA DEL CARRITO ---
+// --- LÓGICA DEL CARRITO (NUEVO) ---
 $num_items_carrito = 0;
 if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
     $num_items_carrito = count($_SESSION['carrito']);
@@ -44,6 +43,7 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
         .flex-shrink-0 {
             flex: 1;
         }
+        /* Estilo para el contador del carrito */
         .badge-carrito {
             font-size: 0.75rem;
             position: relative;
@@ -113,7 +113,6 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
 
       <ul class="navbar-nav ms-auto">
         
-        <?php if(isset($_SESSION['usuario_id']) && $_SESSION['rol_id'] == 3): ?>
         <li class="nav-item me-2">
             <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/carrito_ver.php">
                 <i class="bi bi-cart3 fs-5"></i> 
@@ -124,7 +123,7 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
                 <?php endif; ?>
             </a>
         </li>
-        <?php endif; ?>
+
         <?php if(isset($_SESSION['usuario_id'])): ?>
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle active" href="#" role="button" data-bs-toggle="dropdown">
