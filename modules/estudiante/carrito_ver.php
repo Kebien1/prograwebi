@@ -3,7 +3,20 @@ session_start();
 require_once '../../config/bd.php';
 require_once '../../includes/header.php';
 
-// Inicializar el carrito si no existe
+// --- SEGURIDAD: Bloquear acceso a Administradores ---
+if (isset($_SESSION['rol_id']) && $_SESSION['rol_id'] == 1) {
+    echo '<div class="container mt-5"><div class="alert alert-danger text-center shadow p-5">
+            <h1 class="display-1"><i class="bi bi-exclamation-octagon-fill"></i></h1>
+            <h4 class="fw-bold mt-3">Acceso Restringido</h4>
+            <p class="lead">Esta sección es exclusiva para estudiantes.</p>
+            <p>Los administradores no pueden realizar compras ni gestionar un carrito personal.</p>
+            <a href="../admin/dashboard.php" class="btn btn-dark btn-lg mt-3">Volver al Panel de Admin</a>
+          </div></div>';
+    require_once '../../includes/footer_admin.php'; 
+    exit; // Detenemos la carga del resto de la página
+}
+
+// Inicializar el carrito
 $carrito = isset($_SESSION['carrito']) ? $_SESSION['carrito'] : [];
 
 // Calcular total
@@ -20,7 +33,7 @@ foreach($carrito as $c) {
         <div class="alert alert-info py-5 text-center shadow-sm rounded-4">
             <i class="bi bi-cart-x display-1 text-info mb-3"></i>
             <h4 class="fw-bold">Tu carrito está vacío</h4>
-            <p class="text-muted">Parece que aún no has agregado ningún curso.</p>
+            <p class="text-muted">Parece que aún no has agregado ningún curso o recurso.</p>
             <a href="catalogo.php" class="btn btn-primary mt-3 rounded-pill px-4 fw-bold">
                 <i class="bi bi-search"></i> Explorar Catálogo
             </a>
@@ -47,14 +60,18 @@ foreach($carrito as $c) {
                                                 <?php if(!empty($c['imagen'])): ?>
                                                     <img src="../../uploads/cursos/<?php echo $c['imagen']; ?>" 
                                                          class="rounded me-3" style="width: 50px; height: 50px; object-fit: cover;" 
-                                                         alt="Curso">
+                                                         alt="Img">
                                                 <?php else: ?>
                                                     <div class="bg-light rounded me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
-                                                        <i class="bi bi-book text-secondary"></i>
+                                                        <i class="bi bi-journal-bookmark text-secondary"></i>
                                                     </div>
                                                 <?php endif; ?>
+                                                
                                                 <div>
                                                     <h6 class="mb-0 fw-bold"><?php echo htmlspecialchars($c['titulo']); ?></h6>
+                                                    <span class="badge bg-light text-secondary border mt-1" style="font-size: 0.7rem;">
+                                                        <?php echo isset($c['tipo']) ? strtoupper($c['tipo']) : 'CURSO'; ?>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>
@@ -68,7 +85,7 @@ foreach($carrito as $c) {
                                             <form action="carrito_acciones.php" method="POST" class="d-inline">
                                                 <input type="hidden" name="action" value="eliminar">
                                                 <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
-                                                <button type="submit" class="btn btn-outline-danger btn-sm border-0" title="Eliminar">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm border-0" title="Eliminar del carrito">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
@@ -78,17 +95,16 @@ foreach($carrito as $c) {
                             </tbody>
                         </table>
                     </div>
+                    
                     <div class="card-footer bg-white py-3">
                         <div class="d-flex justify-content-between align-items-center">
-                            
                             <a href="catalogo.php" class="btn btn-outline-secondary rounded-pill">
                                 <i class="bi bi-arrow-left"></i> Seguir Comprando
                             </a>
-
                             <form action="carrito_acciones.php" method="POST" class="d-inline">
                                 <input type="hidden" name="action" value="vaciar">
                                 <button type="submit" class="btn btn-link text-danger text-decoration-none small">
-                                    Vaciar Carrito
+                                    Vaciar todo el carrito
                                 </button>
                             </form>
                         </div>
@@ -106,7 +122,7 @@ foreach($carrito as $c) {
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-4">
-                        <span class="fs-5 fw-bold text-dark">Total</span>
+                        <span class="fs-5 fw-bold text-dark">Total a Pagar</span>
                         <span class="fs-4 fw-bold text-primary">$<?php echo number_format($total, 2); ?></span>
                     </div>
 
@@ -118,7 +134,7 @@ foreach($carrito as $c) {
                     </form>
                     
                     <div class="mt-3 text-center">
-                        <small class="text-muted"><i class="bi bi-shield-lock"></i> Compra Segura</small>
+                        <small class="text-muted"><i class="bi bi-shield-check"></i> Compra 100% Segura</small>
                     </div>
                 </div>
             </div>
@@ -126,4 +142,4 @@ foreach($carrito as $c) {
     <?php endif; ?>
 </div>
 
-<?php require_once '../../includes/footer_admin.php'; ?>
+<?php require_once '../../includes/footer.php'; ?>
