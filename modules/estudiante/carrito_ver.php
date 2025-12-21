@@ -110,14 +110,15 @@ foreach($carrito as $c) {
                         <span class="fs-4 fw-bold text-primary">$<?php echo number_format($total, 2); ?></span>
                     </div>
 
-                    <form action="checkout_procesar.php" method="POST">
+                    <form action="pasarela_pago.php" method="POST">
+                        <input type="hidden" name="origen" value="carrito">
                         <button type="submit" class="btn btn-success w-100 btn-lg rounded-pill shadow fw-bold">
-                            Pagar Ahora <i class="bi bi-check-circle-fill ms-2"></i>
+                            Proceder al Pago <i class="bi bi-credit-card-2-front ms-2"></i>
                         </button>
                     </form>
                     
                     <div class="mt-3 text-center">
-                        <small class="text-muted"><i class="bi bi-shield-lock"></i> Pago 100% Seguro</small>
+                        <small class="text-muted"><i class="bi bi-shield-lock"></i> Compra Segura</small>
                     </div>
                 </div>
             </div>
