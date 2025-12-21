@@ -2,70 +2,39 @@
 session_start();
 require_once '../../config/bd.php';
 
-// 1. Validaciones de Seguridad
-// Si no está logueado o el carrito está vacío, lo expulsamos
-if (!isset($_SESSION['usuario_id']) || empty($_SESSION['carrito'])) {
-    header("Location: carrito_ver.php");
-    exit;
+if (empty($_SESSION['carrito']) || !isset($_SESSION['usuario_id'])) {
+    header("Location: carrito_ver.php"); exit;
 }
 
-$usuario_id = $_SESSION['usuario_id'];
+$uid = $_SESSION['usuario_id'];
 $carrito = $_SESSION['carrito'];
 $total = 0;
-
-// Calcular total nuevamente por seguridad
-foreach($carrito as $item) { 
-    $total += $item['precio']; 
-}
+foreach($carrito as $c) { $total += $c['precio']; }
 
 try {
-    // 2. Iniciar Transacción (Todo o Nada)
     $conexion->beginTransaction();
 
-    // ---------------------------------------------------------
-    // A) CREAR LA FACTURA (CABECERA)
-    // ---------------------------------------------------------
-    // Generamos un código único, ej: FAC-65A2B3C
-    $codigo_factura = 'FAC-' . strtoupper(substr(uniqid(), -7));
-    
-    $sqlFactura = "INSERT INTO facturas (usuario_id, total, codigo_factura, fecha_emision) VALUES (?, ?, ?, NOW())";
-    $stmtF = $conexion->prepare($sqlFactura);
-    $stmtF->execute([$usuario_id, $total, $codigo_factura]);
-    
-    // Obtenemos el ID de la factura recién creada
+    // 1. Factura
+    $codigo = 'FAC-' . strtoupper(uniqid());
+    $stmtF = $conexion->prepare("INSERT INTO facturas (usuario_id, total, codigo_factura, fecha_emision) VALUES (?, ?, ?, NOW())");
+    $stmtF->execute([$uid, $total, $codigo]);
     $factura_id = $conexion->lastInsertId();
 
-    // ---------------------------------------------------------
-    // B) REGISTRAR CADA ÍTEM COMPRADO
-    // ---------------------------------------------------------
-    $sqlCompra = "INSERT INTO compras (usuario_id, item_id, tipo_item, monto_pagado, fecha_compra, factura_id) 
-                  VALUES (?, ?, ?, ?, NOW(), ?)";
-    $stmtC = $conexion->prepare($sqlCompra);
-
+    // 2. Detalles de compra
+    $stmtC = $conexion->prepare("INSERT INTO compras (usuario_id, item_id, tipo_item, monto_pagado, fecha_compra, factura_id) VALUES (?, ?, ?, ?, NOW(), ?)");
+    
     foreach ($carrito as $item) {
-        // Insertamos cada curso o lección vinculándolo a la factura
-        $stmtC->execute([
-            $usuario_id, 
-            $item['id'], 
-            $item['tipo'], 
-            $item['precio'], 
-            $factura_id
-        ]);
+        $stmtC->execute([$uid, $item['id'], $item['tipo'], $item['precio'], $factura_id]);
     }
 
-    // 3. Confirmar Transacción
     $conexion->commit();
-
-    // 4. Limpieza y Redirección
-    $_SESSION['carrito'] = []; // Vaciamos el carrito porque ya pagó
+    $_SESSION['carrito'] = []; // Limpiar
     
-    // Redirigimos a ver el recibo (Paso 6)
-    header("Location: ver_factura.php?id=$factura_id");
+    header("Location: ver_factura.php?id=$factura_id"); 
     exit;
 
 } catch (Exception $e) {
-    // Si algo falla, deshacemos todo
     $conexion->rollBack();
-    die("Error procesando la compra: " . $e->getMessage());
+    die("Error en compra: " . $e->getMessage());
 }
 ?>
