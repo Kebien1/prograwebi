@@ -1,117 +1,118 @@
 <?php
+session_start();
 require_once '../../config/bd.php';
-require_once '../../includes/security.php';
-// verificarRol(3); // Puedes descomentar esto si quieres forzar login para ver el catálogo
 require_once '../../includes/header.php';
 
-// Buscador
-$busqueda = $_GET['q'] ?? ''; 
-$sql = "SELECT * FROM cursos";
-$params = [];
-if (!empty($busqueda)) {
-    $sql .= " WHERE titulo LIKE :texto OR descripcion LIKE :texto";
-    $params[':texto'] = "%$busqueda%"; 
-}
-$sql .= " ORDER BY id DESC";
-$stmt = $conexion->prepare($sql);
-$stmt->execute($params);
-$cursos = $stmt->fetchAll();
+// 1. Obtener la lista de cursos disponibles
+$stmt = $conexion->prepare("SELECT * FROM cursos");
+$stmt->execute();
+$cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Libros
-$libros = $conexion->query("SELECT * FROM libros ORDER BY id DESC")->fetchAll();
+// 2. Obtener los cursos que el usuario YA compró
+$ids_comprados = [];
+if (isset($_SESSION['usuario_id'])) {
+    $uid = $_SESSION['usuario_id'];
+    // Buscamos en la tabla 'compras' solo los que sean tipo 'curso'
+    $stmtCompras = $conexion->prepare("SELECT item_id FROM compras WHERE usuario_id = ? AND tipo_item = 'curso'");
+    $stmtCompras->execute([$uid]);
+    // Guardamos los IDs en un array simple (ej: [1, 5, 8])
+    $ids_comprados = $stmtCompras->fetchAll(PDO::FETCH_COLUMN);
+}
+
 ?>
 
-<div class="container mt-4 mb-5">
-    <div class="text-center mb-4">
-        <h2 class="fw-bold text-dark">Catálogo de Aprendizaje</h2>
-        <p class="text-muted">Explora nuestros cursos y recursos disponibles.</p>
-    </div>
-
-    <div class="row justify-content-center mb-5">
-        <div class="col-md-6">
-            <form action="" method="GET" class="d-flex gap-2">
-                <input type="text" name="q" class="form-control" placeholder="Buscar..." value="<?php echo htmlspecialchars($busqueda); ?>">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+<div class="container mt-5 mb-5">
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h2 class="fw-bold"><i class="bi bi-grid-fill text-primary"></i> Catálogo de Cursos</h2>
+            <p class="text-muted">Explora y aprende nuevas habilidades hoy.</p>
+        </div>
+        <div class="col-auto">
+            <form class="d-flex" role="search">
+                <input class="form-control me-2 rounded-pill" type="search" placeholder="Buscar curso..." aria-label="Search">
+                <button class="btn btn-outline-primary rounded-circle" type="submit"><i class="bi bi-search"></i></button>
             </form>
         </div>
     </div>
 
-    <h4 class="fw-bold mb-3 text-primary border-bottom pb-2"><i class="bi bi-camera-video"></i> Cursos Disponibles</h4>
-    
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
-        <?php foreach($cursos as $c): 
-            $precio = isset($c['precio']) ? $c['precio'] : 0;
-            $docente = isset($c['docente']) ? $c['docente'] : 'Instructor EduPlatform';
-            // Si la consulta original no trae el nombre del docente (JOIN), usar un valor por defecto o hacer el JOIN arriba.
-        ?>
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        <?php foreach ($cursos as $curso): ?>
+            <?php 
+                // Verificar si este curso específico ya fue comprado
+                $yaComprado = in_array($curso['id'], $ids_comprados);
+            ?>
             <div class="col">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge bg-primary bg-opacity-10 text-primary">Curso</span>
-                            <span class="fw-bold text-success">$<?php echo number_format($precio, 2); ?></span>
-                        </div>
-                        <h5 class="card-title fw-bold text-truncate"><?php echo htmlspecialchars($c['titulo']); ?></h5>
-                        <p class="card-text text-muted small text-truncate"><?php echo htmlspecialchars($c['descripcion']); ?></p>
+                <div class="card h-100 shadow-sm border-0 rounded-4 transition-hover">
+                    <div class="position-relative">
+                        <?php if (!empty($curso['imagen'])): ?>
+                            <img src="../../uploads/cursos/<?php echo htmlspecialchars($curso['imagen']); ?>" 
+                                 class="card-img-top rounded-top-4" style="height: 200px; object-fit: cover;" alt="Curso">
+                        <?php else: ?>
+                            <div class="bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center rounded-top-4" style="height: 200px;">
+                                <i class="bi bi-book display-1 text-secondary opacity-25"></i>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if ($yaComprado): ?>
+                            <span class="position-absolute top-0 end-0 m-3 badge rounded-pill bg-success shadow">
+                                <i class="bi bi-check-circle-fill"></i> Inscrito
+                            </span>
+                        <?php endif; ?>
                     </div>
-                    
+
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title fw-bold text-dark"><?php echo htmlspecialchars($curso['titulo']); ?></h5>
+                        <p class="card-text text-muted small flex-grow-1">
+                            <?php echo htmlspecialchars(substr($curso['descripcion'] ?? 'Sin descripción', 0, 100)) . '...'; ?>
+                        </p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-circle text-secondary me-2"></i>
+                                <small class="text-muted"><?php echo htmlspecialchars($curso['instructor'] ?? 'EduPlatform'); ?></small>
+                            </div>
+                            <span class="fw-bold text-primary fs-5">$<?php echo number_format($curso['precio'], 2); ?></span>
+                        </div>
+                    </div>
+
                     <div class="card-footer bg-white border-0 pb-4 pt-0">
                         <div class="d-grid gap-2">
-                            <a href="ver_curso.php?id=<?php echo $c['id']; ?>" class="btn btn-light fw-bold text-primary border btn-sm">Ver Detalles</a>
-                            
-                            <form action="carrito_acciones.php" method="POST">
-                                <input type="hidden" name="action" value="agregar">
-                                <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
-                                <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($c['titulo']); ?>">
-                                <input type="hidden" name="precio" value="<?php echo $precio; ?>">
-                                <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($docente); ?>">
-                                <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($c['imagen_portada'] ?? ''); ?>">
-                                
-                                <button type="submit" class="btn btn-primary w-100 shadow-sm btn-sm">
-                                    <i class="bi bi-cart-plus"></i> Agregar al Carrito
-                                </button>
-                            </form>
+                            <?php if ($yaComprado): ?>
+                                <a href="aula.php?id=<?php echo $curso['id']; ?>" class="btn btn-outline-success rounded-pill fw-bold">
+                                    <i class="bi bi-play-circle-fill me-2"></i> Ir al Aula
+                                </a>
+                            <?php else: ?>
+                                <form action="carrito_acciones.php" method="POST">
+                                    <input type="hidden" name="action" value="agregar">
+                                    <input type="hidden" name="id" value="<?php echo $curso['id']; ?>">
+                                    <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($curso['titulo']); ?>">
+                                    <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
+                                    <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($curso['instructor'] ?? ''); ?>">
+                                    <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($curso['imagen'] ?? ''); ?>">
+                                    <input type="hidden" name="tipo" value="curso"> <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">
+                                        <i class="bi bi-cart-plus me-2"></i> Agregar al Carrito
+                                    </button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                        <div class="text-center mt-2">
+                            <a href="ver_curso.php?id=<?php echo $curso['id']; ?>" class="text-decoration-none small text-muted">
+                                Ver detalles <i class="bi bi-arrow-right"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
             </div>
         <?php endforeach; ?>
     </div>
-
-    <?php if(!empty($libros)): ?>
-    <h4 class="fw-bold mb-3 text-success border-bottom pb-2"><i class="bi bi-book"></i> Libros Digitales</h4>
-    <div class="row row-cols-1 row-cols-md-3 g-4">
-        <?php foreach($libros as $l): 
-             $precioLibro = isset($l['precio']) ? $l['precio'] : 0;
-        ?>
-            <div class="col">
-                <div class="card h-100 border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge bg-success bg-opacity-10 text-success">E-Book</span>
-                            <span class="fw-bold text-success">$<?php echo number_format($precioLibro, 2); ?></span>
-                        </div>
-                        <h5 class="card-title fw-bold text-truncate"><?php echo htmlspecialchars($l['titulo']); ?></h5>
-                        <p class="small text-muted mb-0">Autor: <?php echo htmlspecialchars($l['autor']); ?></p>
-                    </div>
-                    <div class="card-footer bg-white border-0 pb-3">
-                        <form action="carrito_acciones.php" method="POST">
-                            <input type="hidden" name="action" value="agregar">
-                            <input type="hidden" name="id" value="L-<?php echo $l['id']; ?>"> <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($l['titulo']); ?>">
-                            <input type="hidden" name="precio" value="<?php echo $precioLibro; ?>">
-                            <input type="hidden" name="instructor" value="Autor: <?php echo htmlspecialchars($l['autor']); ?>">
-                            <input type="hidden" name="imagen" value=""> <button type="submit" class="btn btn-outline-success w-100 rounded-pill btn-sm">
-                                <i class="bi bi-cart-plus"></i> Agregar E-Book
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
 </div>
-<?php 
-require_once '../../includes/footer_admin.php'; 
-?>
+
+<style>
+    .transition-hover:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+        transition: all 0.3s ease;
+    }
+</style>
+
+<?php require_once '../../includes/footer.php'; ?>
