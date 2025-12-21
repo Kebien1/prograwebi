@@ -31,6 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $titulo = trim($_POST['titulo']);
     $url = trim($_POST['video_url']);
     $desc = trim($_POST['descripcion']);
+    // Nuevos campos para pago
+    $es_de_pago = isset($_POST['es_de_pago']) ? $_POST['es_de_pago'] : 0;
+    $precio = isset($_POST['precio']) && $_POST['precio'] !== '' ? $_POST['precio'] : 0.00;
+    
     $accion = $_POST['accion'];
     
     // Lógica para limpiar y convertir URLs de YouTube a formato 'embed'
@@ -44,13 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($titulo && $url) {
         if ($accion == 'crear') {
-            $sql = "INSERT INTO lecciones (curso_id, titulo, video_url, descripcion, orden) VALUES (?, ?, ?, ?, 0)";
-            $conexion->prepare($sql)->execute([$id_curso, $titulo, $url, $desc]);
+            // INSERT incluyendo es_de_pago y precio
+            $sql = "INSERT INTO lecciones (curso_id, titulo, video_url, descripcion, orden, es_de_pago, precio) VALUES (?, ?, ?, ?, 0, ?, ?)";
+            $conexion->prepare($sql)->execute([$id_curso, $titulo, $url, $desc, $es_de_pago, $precio]);
             $mensaje = "<div class='alert alert-success'>Lección añadida correctamente.</div>";
         } elseif ($accion == 'actualizar') {
             $id_lec = $_POST['id_leccion'];
-            $sql = "UPDATE lecciones SET titulo=?, video_url=?, descripcion=? WHERE id=? AND curso_id=?";
-            $conexion->prepare($sql)->execute([$titulo, $url, $desc, $id_lec, $id_curso]);
+            // UPDATE incluyendo es_de_pago y precio
+            $sql = "UPDATE lecciones SET titulo=?, video_url=?, descripcion=?, es_de_pago=?, precio=? WHERE id=? AND curso_id=?";
+            $conexion->prepare($sql)->execute([$titulo, $url, $desc, $es_de_pago, $precio, $id_lec, $id_curso]);
             $mensaje = "<div class='alert alert-success'>Lección actualizada.</div>";
             $leccion_a_editar = null; 
         }
@@ -100,6 +106,22 @@ $lecciones = $stmtLec->fetchAll();
                             <input type="text" name="titulo" class="form-control form-control-sm" required
                                    value="<?php echo $leccion_a_editar ? htmlspecialchars($leccion_a_editar['titulo']) : ''; ?>">
                         </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">Acceso</label>
+                                <select name="es_de_pago" class="form-select form-select-sm">
+                                    <option value="0" <?php echo ($leccion_a_editar && $leccion_a_editar['es_de_pago'] == 0) ? 'selected' : ''; ?>>Gratis</option>
+                                    <option value="1" <?php echo ($leccion_a_editar && $leccion_a_editar['es_de_pago'] == 1) ? 'selected' : ''; ?>>De Pago</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-bold">Precio ($)</label>
+                                <input type="number" step="0.01" name="precio" class="form-control form-control-sm" placeholder="0.00"
+                                       value="<?php echo $leccion_a_editar ? $leccion_a_editar['precio'] : ''; ?>">
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label small fw-bold">URL de Video (YouTube)</label>
                             <input type="url" name="video_url" class="form-control form-control-sm" placeholder="https://www.youtube.com/watch?v=..." required
@@ -126,6 +148,7 @@ $lecciones = $stmtLec->fetchAll();
                             <tr>
                                 <th class="ps-4 small">Orden</th>
                                 <th class="small">Lección</th>
+                                <th class="small">Tipo</th>
                                 <th class="text-end pe-4 small">Acciones</th>
                             </tr>
                         </thead>
@@ -135,7 +158,14 @@ $lecciones = $stmtLec->fetchAll();
                                 <td class="ps-4 text-muted small"><?php echo $index + 1; ?></td>
                                 <td>
                                     <div class="fw-bold text-dark small"><?php echo htmlspecialchars($l['titulo']); ?></div>
-                                    <div class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-link-45deg"></i> Video enlazado</div>
+                                    <div class="text-muted" style="font-size: 0.75rem;"><i class="bi bi-link-45deg"></i> Video cargado</div>
+                                </td>
+                                <td>
+                                    <?php if($l['es_de_pago'] == 1): ?>
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-currency-dollar"></i> $<?php echo number_format($l['precio'], 2); ?></span>
+                                    <?php else: ?>
+                                        <span class="badge bg-success">Gratis</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="text-end pe-4">
                                     <a href="cursos_lecciones.php?id=<?php echo $id_curso; ?>&editar=<?php echo $l['id']; ?>" 
@@ -146,7 +176,7 @@ $lecciones = $stmtLec->fetchAll();
                             </tr>
                             <?php endforeach; ?>
                             <?php if(empty($lecciones)): ?>
-                                <tr><td colspan="3" class="text-center py-4 text-muted small">Aún no hay lecciones en este curso.</td></tr>
+                                <tr><td colspan="4" class="text-center py-4 text-muted small">Aún no hay lecciones en este curso.</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -155,3 +185,4 @@ $lecciones = $stmtLec->fetchAll();
         </div>
     </div>
 </div>
+<?php require_once '../../includes/footer_admin.php'; ?>
