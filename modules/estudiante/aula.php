@@ -4,7 +4,6 @@ require_once '../../config/bd.php';
 
 // 1. Validaciones básicas
 $id_curso = $_GET['id'] ?? 0;
-// NOTA: Si usas secciones, el índice puede cambiar, así que buscamos la primera lección real si l=0
 $indice_leccion = $_GET['l'] ?? 0;
 
 if (!$id_curso) { header("Location: ../../index.php"); exit; }
@@ -42,23 +41,26 @@ if ($rol_id == 1 || $rol_id == 2) {
     if ($stmtCompra->rowCount() > 0) $acceso_total = true;
 }
 
-// Permiso para el video actual
-if ($acceso_total) {
-    $puede_ver_video_actual = true;
-} elseif ($leccionActual['es_gratis'] == 1) {
+if ($acceso_total || $leccionActual['es_gratis'] == 1) {
     $puede_ver_video_actual = true;
 }
 
-// DETECTAR SI LA LECCIÓN ACTUAL ES SOLO UNA SECCIÓN (Título)
-// Si el usuario intenta ver una "Sección" (que no tiene video), saltamos a la siguiente lección real.
-if (stripos($leccionActual['titulo'], 'SECCIÓN:') !== false || stripos($leccionActual['titulo'], 'MODULO:') !== false) {
-    // Es un título, no un video. No mostramos nada o redirigimos si es necesario.
-    // (Visualmente se manejará abajo, aquí solo evitamos errores de lógica si fuera necesario)
+// 5. NUEVO: Obtener Recursos de la lección actual
+// Asumimos que la tabla se llama 'recursos' y tiene 'leccion_id'
+$recursos = [];
+if (isset($leccionActual['id'])) {
+    // Intenta buscar los recursos. Si la tabla tiene otro nombre, ajusta esta línea.
+    try {
+        $stmtRec = $conexion->prepare("SELECT * FROM recursos WHERE leccion_id = ?");
+        $stmtRec->execute([$leccionActual['id']]);
+        $recursos = $stmtRec->fetchAll();
+    } catch (Exception $e) {
+        // Si la tabla no existe, no falla, simplemente no muestra recursos
+        $recursos = [];
+    }
 }
 
-// Navegación (Anterior / Siguiente)
-// Lógica simple: +/- 1, pero saltando las "Secciones" si caen en ellas sería lo ideal. 
-// Para mantenerlo simple y funcional, dejaremos la navegación lineal por ahora.
+// Navegación
 $indice_ant = ($indice_leccion > 0) ? $indice_leccion - 1 : null;
 $indice_sig = ($indice_leccion < count($lecciones) - 1) ? $indice_leccion + 1 : null;
 
@@ -66,15 +68,15 @@ require_once '../../includes/header.php';
 ?>
 
 <style>
-    /* Área del Video (Siempre oscura para resaltar el contenido) */
+    /* Área del Video */
     .video-area {
         background-color: #000;
-        min-height: 500px;
+        min-height: 450px;
         display: flex;
         align-items: center;
         justify-content: center;
     }
-
+    
     /* Sidebar Temario (Modo Claro) */
     .sidebar-curso {
         background-color: #fff;
@@ -84,88 +86,60 @@ require_once '../../includes/header.php';
         flex-direction: column;
     }
 
-    .sidebar-header {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-bottom: 1px solid #dee2e6;
-    }
-
-    /* Items de la lista */
-    .list-group-item {
-        border: none;
-        border-bottom: 1px solid #f1f1f1;
-        padding: 0.8rem 1rem;
-        color: #495057;
-        transition: all 0.2s;
-    }
-
-    .list-group-item:hover {
-        background-color: #f8f9fa;
-        color: #0d6efd; /* Azul Bootstrap */
-    }
-
-    /* Item Activo */
     .list-group-item.active {
-        background-color: #e7f1ff; /* Azul muy clarito */
+        background-color: #e7f1ff;
         color: #0d6efd;
         font-weight: bold;
-        border-left: 4px solid #0d6efd; /* Borde indicador a la izquierda */
+        border-left: 4px solid #0d6efd;
     }
-
-    /* Item Bloqueado */
-    .list-group-item.disabled {
-        background-color: #fff;
-        color: #adb5bd;
-        opacity: 0.6;
-    }
-
-    /* TÍTULOS DE SECCIÓN (El truco) */
+    
     .item-seccion {
-        background-color: #f1f3f5; /* Gris suave */
-        color: #212529;
+        background-color: #f1f3f5;
+        color: #495057;
         font-weight: 800;
         text-transform: uppercase;
-        font-size: 0.85rem;
-        padding: 1rem;
+        font-size: 0.8rem;
+        padding: 0.75rem 1rem;
         letter-spacing: 1px;
-        border-bottom: 2px solid #e9ecef;
-        margin-top: 10px;
-        pointer-events: none; /* No clickeable */
+        border-bottom: 1px solid #e9ecef;
     }
 </style>
 
 <div class="container-fluid p-0">
     <div class="row g-0">
         
-        <div class="col-lg-9 bg-dark">
+        <div class="col-lg-9">
             <div class="video-area position-relative">
-                
                 <?php 
-                    // Verificamos si es una SECCIÓN (Título) o un VIDEO real
                     $esSeccionTitulo = (stripos($leccionActual['titulo'], 'SECCIÓN:') !== false || stripos($leccionActual['titulo'], 'MODULO:') !== false);
                 ?>
 
                 <?php if ($esSeccionTitulo): ?>
                     <div class="text-center text-white">
                         <h3><?php echo htmlspecialchars($leccionActual['titulo']); ?></h3>
-                        <p class="text-muted">Selecciona una clase de la lista para comenzar.</p>
+                        <p class="text-muted">Selecciona una clase para continuar.</p>
                     </div>
 
                 <?php elseif ($puede_ver_video_actual): ?>
                     <div class="ratio ratio-16x9 w-100 h-100" style="max-height: 85vh;">
                          <?php 
-                            $url = $leccionActual['url_video'];
-                            $esYoutube = (strpos($url, 'youtube.com') !== false || strpos($url, 'youtu.be') !== false);
+                            // CORRECCIÓN: Usamos 'video_url' que es como se llama en tu BD original
+                            $url = $leccionActual['video_url']; 
+                            
+                            // Lógica mejorada para YouTube
+                            $esYoutube = (stripos($url, 'youtube.com') !== false || stripos($url, 'youtu.be') !== false);
                         ?>
 
                         <?php if($esYoutube): ?>
                             <?php
+                                // Extraer ID de YouTube (Soporta formatos cortos y largos)
                                 $videoId = '';
-                                if(preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i', $url, $match)) {
+                                $patron = '%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i';
+                                if(preg_match($patron, $url, $match)) {
                                     $videoId = $match[1];
                                 }
                             ?>
-                            <iframe src="https://www.youtube.com/embed/<?php echo $videoId; ?>?rel=0&modestbranding=1" allowfullscreen></iframe>
+                            <iframe src="https://www.youtube.com/embed/<?php echo $videoId; ?>?rel=0&modestbranding=1" title="Video de la clase" allowfullscreen></iframe>
                         <?php else: ?>
                             <video src="<?php echo $url; ?>" controls controlsList="nodownload"></video>
                         <?php endif; ?>
@@ -175,11 +149,9 @@ require_once '../../includes/header.php';
                     <div class="text-center text-white p-5">
                         <i class="bi bi-lock-fill display-1 text-secondary mb-3"></i>
                         <h3 class="fw-bold">Clase Bloqueada</h3>
-                        <p class="mb-4">Adquiere el curso para acceder a este contenido.</p>
-                        <?php if(!$usuario_id): ?>
-                             <a href="../../modules/auth/login.php" class="btn btn-primary">Iniciar Sesión</a>
-                        <?php elseif(!$acceso_total): ?>
-                            <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="btn btn-success fw-bold">Comprar Curso Completo</a>
+                        <p class="mb-4">Este contenido es exclusivo para estudiantes inscritos.</p>
+                        <?php if(!$acceso_total): ?>
+                            <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="btn btn-success fw-bold">Comprar Curso</a>
                         <?php endif; ?>
                     </div>
                 <?php endif; ?>
@@ -187,56 +159,83 @@ require_once '../../includes/header.php';
             
             <?php if(!$esSeccionTitulo): ?>
             <div class="p-4 bg-white">
-                <h2 class="fw-bold"><?php echo htmlspecialchars($leccionActual['titulo']); ?></h2>
-                <p class="text-secondary mt-3"><?php echo nl2br(htmlspecialchars($leccionActual['descripcion'])); ?></p>
+                <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold" id="desc-tab" data-bs-toggle="tab" data-bs-target="#desc" type="button">Descripción</button>
+                    </li>
+                    <?php if(count($recursos) > 0 && $puede_ver_video_actual): ?>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold" id="recursos-tab" data-bs-toggle="tab" data-bs-target="#recursos" type="button">
+                            Recursos <span class="badge bg-secondary ms-1"><?php echo count($recursos); ?></span>
+                        </button>
+                    </li>
+                    <?php endif; ?>
+                </ul>
+                
+                <div class="tab-content" id="myTabContent">
+                    <div class="tab-pane fade show active" id="desc" role="tabpanel">
+                        <h2 class="h4 fw-bold mb-3"><?php echo htmlspecialchars($leccionActual['titulo']); ?></h2>
+                        <div class="text-secondary lh-lg">
+                            <?php echo nl2br(htmlspecialchars($leccionActual['descripcion'])); ?>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="recursos" role="tabpanel">
+                        <h5 class="fw-bold mb-3">Material de descarga</h5>
+                        <div class="list-group">
+                            <?php foreach($recursos as $rec): ?>
+                                <?php 
+                                    // Ajusta esta ruta si tus archivos se guardan en otra carpeta
+                                    $rutaArchivo = "../../uploads/recursos/" . $rec['archivo']; 
+                                ?>
+                                <a href="<?php echo $rutaArchivo; ?>" target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
+                                    <div class="bg-light p-2 rounded me-3 text-danger">
+                                        <i class="bi bi-file-earmark-pdf-fill fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold text-dark"><?php echo htmlspecialchars($rec['titulo'] ?? 'Archivo adjunto'); ?></h6>
+                                        <small class="text-muted">Clic para descargar</small>
+                                    </div>
+                                    <i class="bi bi-download ms-auto text-muted"></i>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
             </div>
             <?php endif; ?>
         </div>
 
-        <div class="col-lg-3 d-none d-lg-block">
+        <div class="col-lg-3 d-none d-lg-block border-start">
             <div class="sidebar-curso shadow-sm" style="max-height: 100vh; overflow-y: auto;">
                 
-                <div class="sidebar-header sticky-top">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <small class="text-muted fw-bold text-uppercase">Contenido del curso</small>
-                        <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg"></i> Salir</a>
+                <div class="p-3 bg-light border-bottom sticky-top">
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-muted fw-bold text-uppercase">Temario</small>
+                        <a href="ver_curso.php?id=<?php echo $id_curso; ?>" class="text-decoration-none small">Salir</a>
                     </div>
                     <h6 class="fw-bold mb-0 text-truncate"><?php echo htmlspecialchars($curso['titulo']); ?></h6>
-                    <div class="progress mt-2" style="height: 4px;">
-                        <?php 
-                            // Cálculo simple de progreso
-                            $progreso = ($indice_leccion + 1) / count($lecciones) * 100; 
-                        ?>
-                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progreso; ?>%"></div>
-                    </div>
                 </div>
 
                 <div class="list-group list-group-flush">
                     <?php foreach ($lecciones as $index => $leccion): ?>
                         <?php 
-                            // 1. DETECTAR SI ES SECCIÓN (Truco)
+                            // Truco de Sección
                             $esSeccion = (stripos($leccion['titulo'], 'SECCIÓN:') !== false || stripos($leccion['titulo'], 'MODULO:') !== false);
 
                             if ($esSeccion): 
-                                // RENDERIZAR COMO TÍTULO SEPARADOR
                         ?>
                             <div class="item-seccion">
-                                <?php 
-                                    // Limpiamos la palabra "SECCIÓN:" para mostrar solo el nombre
-                                    echo str_ireplace(['SECCIÓN:', 'MODULO:', 'SECCION:'], '', htmlspecialchars($leccion['titulo'])); 
-                                ?>
+                                <?php echo str_ireplace(['SECCIÓN:', 'MODULO:'], '', htmlspecialchars($leccion['titulo'])); ?>
                             </div>
 
                         <?php else: 
-                                // RENDERIZAR COMO LECCIÓN NORMAL
                                 $isActive = ($index == $indice_leccion);
                                 $isLocked = !($acceso_total || $leccion['es_gratis'] == 1);
-                                
                                 $link = $isLocked ? '#' : "?id=$id_curso&l=$index";
-                                $claseItem = $isActive ? 'active' : ($isLocked ? 'disabled' : '');
+                                $claseItem = $isActive ? 'active' : ($isLocked ? 'disabled bg-light' : '');
                         ?>
-                            <a href="<?php echo $link; ?>" class="list-group-item list-group-item-action d-flex align-items-center gap-3 <?php echo $claseItem; ?>">
-                                
+                            <a href="<?php echo $link; ?>" class="list-group-item list-group-item-action d-flex align-items-center gap-2 <?php echo $claseItem; ?>">
                                 <?php if($isLocked): ?>
                                     <i class="bi bi-lock-fill text-muted"></i>
                                 <?php elseif($isActive): ?>
@@ -245,56 +244,19 @@ require_once '../../includes/header.php';
                                     <i class="bi bi-play-circle text-secondary"></i>
                                 <?php endif; ?>
 
-                                <div class="w-100">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <span class="lh-sm small fw-bold">
-                                            <?php echo htmlspecialchars($leccion['titulo']); ?>
-                                        </span>
-                                    </div>
-                                    <?php if($leccion['es_gratis'] == 1 && !$acceso_total): ?>
-                                        <span class="badge bg-success mt-1" style="font-size: 0.6rem;">Gratis</span>
-                                    <?php endif; ?>
-                                </div>
+                                <span class="small fw-bold lh-sm w-100">
+                                    <?php echo htmlspecialchars($leccion['titulo']); ?>
+                                </span>
                             </a>
-
-                        <?php endif; // Fin if/else seccion ?>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
-
             </div>
         </div>
 
     </div>
 </div>
 
-<div class="d-lg-none fixed-bottom bg-white border-top p-2 d-flex justify-content-between align-items-center shadow-lg">
-    <span class="small fw-bold ms-2">Clase <?php echo $indice_leccion + 1; ?></span>
-    <button class="btn btn-primary btn-sm" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasTemario">
-        <i class="bi bi-list"></i> Ver Temario
-    </button>
-</div>
-
-<div class="offcanvas offcanvas-bottom h-75" tabindex="-1" id="offcanvasTemario">
-    <div class="offcanvas-header">
-        <h5 class="offcanvas-title">Temario</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-    </div>
-    <div class="offcanvas-body p-0">
-        <div class="list-group list-group-flush">
-             <?php foreach ($lecciones as $index => $leccion): ?>
-                <?php 
-                   $esSeccion = (stripos($leccion['titulo'], 'SECCIÓN:') !== false);
-                   if($esSeccion):
-                ?>
-                    <div class="bg-light p-3 fw-bold border-bottom"><?php echo htmlspecialchars($leccion['titulo']); ?></div>
-                <?php else: 
-                    $link = "?id=$id_curso&l=$index";
-                ?>
-                    <a href="<?php echo $link; ?>" class="list-group-item list-group-item-action p-3">
-                        <?php echo ($index+1) . ". " . htmlspecialchars($leccion['titulo']); ?>
-                    </a>
-                <?php endif; ?>
-             <?php endforeach; ?>
-        </div>
-    </div>
-</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
