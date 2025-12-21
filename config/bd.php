@@ -15,4 +15,3 @@ try {
 } catch(PDOException $ex) {
     die("Error de conexión: " . $ex->getMessage());
 }
-// NO AGREGUES LA ETIQUETA DE CIERRE (?>) AQUÍ, DÉJALO ABIERTO PARA EVITAR ERRORES DE ESPACIOS

@@ -1,48 +1,68 @@
 <?php
 session_start();
+// Asegurarnos de que la ruta a bd.php es correcta
 require_once '../../config/bd.php';
 
-// Validar que recibimos un ID
-if (!isset($_GET['id'])) {
-    header("Location: dashboard.php");
+// 1. Validar sesión
+if (!isset($_SESSION['usuario_id'])) {
+    header("Location: ../auth/login.php");
+    exit;
+}
+
+// 2. Validar que recibimos un ID
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    header("Location: mis_compras.php");
     exit;
 }
 
 $fid = $_GET['id'];
 $uid = $_SESSION['usuario_id'];
 
-// ---------------------------------------------------------
-// 1. Obtener datos de la Factura y del Cliente
-// ---------------------------------------------------------
-// CORRECCIÓN: Usamos INNER JOIN para traer nombre y email del usuario dueño de la factura.
-$sqlFactura = "SELECT f.*, u.nombre, u.apellido, u.email, u.telefono 
-               FROM facturas f 
-               INNER JOIN usuarios u ON f.usuario_id = u.id 
-               WHERE f.id = ? AND f.usuario_id = ?";
+try {
+    // ---------------------------------------------------------
+    // 3. Obtener datos de la Factura y del Cliente
+    // ---------------------------------------------------------
+    // Usamos alias claros para evitar conflictos de columnas
+    $sqlFactura = "SELECT f.*, u.nombre, u.apellido, u.email, u.telefono 
+                   FROM facturas f 
+                   INNER JOIN usuarios u ON f.usuario_id = u.id 
+                   WHERE f.id = ? AND f.usuario_id = ?";
 
-$stmt = $conexion->prepare($sqlFactura);
-$stmt->execute([$fid, $uid]);
-$f = $stmt->fetch();
+    $stmt = $conexion->prepare($sqlFactura);
+    $stmt->execute([$fid, $uid]);
+    $f = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$f) {
-    die("Error: Factura no encontrada o no tienes permiso para verla.");
+    if (!$f) {
+        // Si no se encuentra, redirigir o mostrar mensaje amigable
+        echo "<div style='padding:20px; text-align:center; font-family:sans-serif;'>
+                <h2>Factura no encontrada</h2>
+                <p>No se encontró la factura solicitada o no tienes permisos para verla.</p>
+                <a href='mis_compras.php'>Volver a mis compras</a>
+              </div>";
+        exit;
+    }
+
+    // ---------------------------------------------------------
+    // 4. Obtener los productos (MEJORADO con LEFT JOIN)
+    // ---------------------------------------------------------
+    // En lugar de subconsultas propensas a error, usamos JOINs para buscar el titulo 
+    // en la tabla 'cursos' o 'lecciones' según corresponda.
+    $sqlItems = "SELECT 
+                    c.monto_pagado,
+                    c.tipo_item,
+                    COALESCE(cur.titulo, lec.titulo, 'Producto/Recurso Educativo') as nombre_item
+                 FROM compras c
+                 LEFT JOIN cursos cur ON (c.item_id = cur.id AND c.tipo_item = 'curso')
+                 LEFT JOIN lecciones lec ON (c.item_id = lec.id AND c.tipo_item = 'leccion')
+                 WHERE c.factura_id = ?";
+                
+    $itemsStmt = $conexion->prepare($sqlItems);
+    $itemsStmt->execute([$fid]);
+    $detalles = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    die("Error al cargar la factura: " . $e->getMessage());
 }
-
-// ---------------------------------------------------------
-// 2. Obtener los productos comprados en esta factura
-// ---------------------------------------------------------
-// Hacemos subconsultas para obtener el nombre real del curso o lección según el tipo.
-$sqlItems = "SELECT c.*, 
-            CASE 
-                WHEN c.tipo_item = 'curso' THEN (SELECT titulo FROM cursos WHERE id = c.item_id)
-                WHEN c.tipo_item = 'leccion' THEN (SELECT titulo FROM lecciones WHERE id = c.item_id)
-                ELSE 'Recurso Educativo'
-            END as nombre_item 
-            FROM compras c WHERE factura_id = ?";
-            
-$items = $conexion->prepare($sqlItems);
-$items->execute([$fid]);
-$detalles = $items->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -50,17 +70,21 @@ $detalles = $items->fetchAll();
 <head>
     <meta charset="UTF-8">
     <title>Recibo #<?php echo htmlspecialchars($f['codigo_factura']); ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style> 
         @media print { 
             .no-print { display:none !important; } 
-            body { background: white !important; }
+            body { background: white !important; -webkit-print-color-adjust: exact; }
             .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+            .bg-primary { background-color: #0d6efd !important; color: white !important; }
         } 
+        body { background-color: #f8f9fa; }
     </style>
 </head>
-<body class="bg-light p-md-5 p-3">
-    <div class="card mx-auto shadow-lg border-0" style="max-width: 800px;">
+<body class="p-md-5 p-3">
+    <div class="card mx-auto shadow-sm border-0" style="max-width: 800px;">
         
         <div class="card-header bg-white p-4 border-bottom">
             <div class="row align-items-center">
@@ -70,9 +94,10 @@ $detalles = $items->fetchAll();
                 </div>
                 <div class="col-6 text-end">
                     <h5 class="fw-bold mb-1">#<?php echo htmlspecialchars($f['codigo_factura']); ?></h5>
-                    <span class="badge bg-success bg-opacity-10 text-success border border-success">PAGADO</span>
-                    <div class="small text-muted mt-1">
-                        <?php echo date('d/m/Y H:i', strtotime($f['fecha_emision'])); ?>
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success px-3">PAGADO</span>
+                    <div class="small text-muted mt-2">
+                        Fecha: <?php echo date('d/m/Y', strtotime($f['fecha_emision'])); ?><br>
+                        Hora: <?php echo date('H:i', strtotime($f['fecha_emision'])); ?>
                     </div>
                 </div>
             </div>
@@ -83,61 +108,70 @@ $detalles = $items->fetchAll();
             <div class="row mb-5">
                 <div class="col-sm-6">
                     <h6 class="fw-bold text-secondary text-uppercase small mb-3">Facturado a:</h6>
-                    <h5 class="fw-bold mb-1">
+                    <h5 class="fw-bold mb-1 text-dark">
                         <?php echo htmlspecialchars($f['nombre'] . ' ' . $f['apellido']); ?>
                     </h5>
-                    <p class="mb-0 text-muted"><i class="bi bi-envelope"></i> <?php echo htmlspecialchars($f['email']); ?></p>
+                    <p class="mb-0 text-muted small"><i class="bi bi-envelope-fill me-1"></i> <?php echo htmlspecialchars($f['email']); ?></p>
                     <?php if(!empty($f['telefono'])): ?>
-                        <p class="mb-0 text-muted"><i class="bi bi-phone"></i> <?php echo htmlspecialchars($f['telefono']); ?></p>
+                        <p class="mb-0 text-muted small"><i class="bi bi-telephone-fill me-1"></i> <?php echo htmlspecialchars($f['telefono']); ?></p>
                     <?php endif; ?>
                 </div>
             </div>
 
             <div class="table-responsive mb-4">
-                <table class="table table-striped border">
-                    <thead class="table-dark">
+                <table class="table table-hover border-bottom">
+                    <thead class="table-light">
                         <tr>
-                            <th scope="col" class="py-3">Descripción</th>
+                            <th scope="col" class="py-3 ps-3">Descripción</th>
                             <th scope="col" class="py-3 text-center">Tipo</th>
-                            <th scope="col" class="py-3 text-end">Importe</th>
+                            <th scope="col" class="py-3 text-end pe-3">Importe</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach($detalles as $d): ?>
-                        <tr>
-                            <td class="align-middle">
-                                <?php echo htmlspecialchars($d['nombre_item'] ?: 'Ítem eliminado o no disponible'); ?>
-                            </td>
-                            <td class="align-middle text-center">
-                                <span class="badge bg-secondary"><?php echo strtoupper($d['tipo_item']); ?></span>
-                            </td>
-                            <td class="align-middle text-end fw-bold">
-                                $<?php echo number_format($d['monto_pagado'], 2); ?>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
+                        <?php if (count($detalles) > 0): ?>
+                            <?php foreach($detalles as $d): ?>
+                            <tr>
+                                <td class="align-middle ps-3">
+                                    <?php echo htmlspecialchars($d['nombre_item']); ?>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <span class="badge bg-secondary fw-normal"><?php echo strtoupper($d['tipo_item']); ?></span>
+                                </td>
+                                <td class="align-middle text-end fw-bold pe-3">
+                                    $<?php echo number_format($d['monto_pagado'], 2); ?>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">
+                                    No se encontraron detalles para esta factura.
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                     </tbody>
                     <tfoot>
-                        <tr class="border-top border-2 border-dark">
-                            <th colspan="2" class="text-end py-3">TOTAL PAGADO</th>
-                            <th class="text-end bg-primary text-white py-3 fs-5">
+                        <tr>
+                            <td colspan="2" class="text-end py-3 fw-bold">TOTAL PAGADO</td>
+                            <td class="text-end bg-primary text-white py-3 fs-5 pe-3 rounded-end">
                                 $<?php echo number_format($f['total'], 2); ?>
-                            </th>
+                            </td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
 
-            <div class="alert alert-light border text-center text-muted small">
+            <div class="alert alert-light border text-center text-muted small mt-4">
+                <i class="bi bi-check-circle me-1"></i>
                 Gracias por confiar en nuestra plataforma educativa. Este documento sirve como comprobante de tu inscripción.
             </div>
 
-            <div class="text-center mt-4 no-print d-grid gap-2 d-sm-block">
-                <button onclick="window.print()" class="btn btn-outline-secondary px-4 me-sm-2">
-                    Imprimir / Guardar PDF
+            <div class="text-center mt-5 no-print d-flex justify-content-center gap-3">
+                <button onclick="window.print()" class="btn btn-outline-secondary px-4">
+                    <i class="bi bi-printer me-2"></i> Imprimir
                 </button>
                 <a href="mis_compras.php" class="btn btn-primary px-4">
-                    Ir a Mis Cursos
+                    <i class="bi bi-journal-check me-2"></i> Ir a Mis Cursos
                 </a>
             </div>
         </div>
