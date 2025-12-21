@@ -1,6 +1,15 @@
 <?php
 session_start();
 require_once '../../config/bd.php';
+
+// --- CORRECCIÓN: Seguridad Estricta ---
+// Solo permitir acceso si hay sesión Y el rol es 3 (Estudiante)
+if (!isset($_SESSION['usuario_id']) || $_SESSION['rol_id'] != 3) {
+    header("Location: ../../index.php");
+    exit;
+}
+// --------------------------------------
+
 require_once '../../includes/header.php';
 
 // Inicializar el carrito si no existe
@@ -110,10 +119,9 @@ foreach($carrito as $c) {
                         <span class="fs-4 fw-bold text-primary">$<?php echo number_format($total, 2); ?></span>
                     </div>
 
-                    <form action="pasarela_pago.php" method="POST">
-                        <input type="hidden" name="origen" value="carrito">
+                    <form action="checkout_procesar.php" method="POST"> <input type="hidden" name="origen" value="carrito">
                         <button type="submit" class="btn btn-success w-100 btn-lg rounded-pill shadow fw-bold">
-                            Proceder al Pago <i class="bi bi-credit-card-2-front ms-2"></i>
+                            Confirmar Compra <i class="bi bi-check-circle-fill ms-2"></i>
                         </button>
                     </form>
                     
