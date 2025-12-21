@@ -101,5 +101,3 @@ $cursos = $conexion->query($sql)->fetchAll();
         </div>
     <?php endif; ?>
 </div>
-
-<?php require_once '../../includes/footer.php'; ?>

@@ -138,4 +138,3 @@ $u = $stmtUser->fetch();
     </div>
 </div>
 
-<?php require_once '../../includes/footer.php'; ?>

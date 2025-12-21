@@ -53,4 +53,3 @@ $usuarios = $conexion->query($sql)->fetchAll();
         </div>
     </div>
 </div>
-<?php require_once '../../includes/footer.php'; ?>

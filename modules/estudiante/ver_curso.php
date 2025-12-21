@@ -88,4 +88,3 @@ if (isset($_SESSION['usuario_id'])) {
         </div>
     </div>
 </div>
-<?php require_once '../../includes/footer.php'; ?>
