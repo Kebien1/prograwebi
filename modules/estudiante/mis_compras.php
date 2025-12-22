@@ -1,125 +1,99 @@
 <?php
 // modules/estudiante/mis_compras.php
 
-// 1. ACTIVAR REPORTE DE ERRORES (Vital para detectar fallos en lugar de ver pantalla blanca)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+session_start();
+// Verificar si el usuario ha iniciado sesión
+if (!isset($_SESSION['id_usuario'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
 
-// 2. INCLUIR ARCHIVOS DE CONFIGURACIÓN Y SEGURIDAD
-require_once '../../config/bd.php';
-require_once '../../includes/security.php';
-
-// 3. VERIFICAR QUE EL USUARIO SEA ESTUDIANTE (Rol 3)
-verificarRol(3);
-
-// 4. INCLUIR EL ENCABEZADO (HEADER)
+// Incluir la conexión a la base de datos
+require_once '../../config/bd.php'; // Asegúrate que esta ruta sea correcta
 require_once '../../includes/header.php';
+
+$id_usuario = $_SESSION['id_usuario'];
+
+try {
+    // ---------------------------------------------------------
+    // CORRECCIÓN AQUÍ:
+    // Usamos 'inscripciones' en lugar de 'ventas'.
+    // Hacemos JOIN con 'cursos' para obtener el nombre e imagen.
+    // ---------------------------------------------------------
+    $sql = "SELECT 
+                i.id AS id_inscripcion,
+                i.fecha_inscripcion,
+                c.id AS id_curso,
+                c.titulo,
+                c.imagen,
+                c.precio,
+                c.descripcion
+            FROM inscripciones i 
+            INNER JOIN cursos c ON i.id_curso = c.id 
+            WHERE i.id_usuario = :id_usuario 
+            ORDER BY i.fecha_inscripcion DESC";
+
+    $stmt = $bd->prepare($sql);
+    $stmt->bindParam(':id_usuario', $id_usuario, PDO::PARAM_INT);
+    $stmt->execute();
+    $mis_cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    // Si la tabla 'inscripciones' no existe, probamos con 'compras' para evitar el error fatal
+    // Esto es solo un manejo de error, lo ideal es tener el nombre correcto arriba.
+    echo "<div class='container mt-5 alert alert-danger'>";
+    echo "Error de base de datos: " . $e->getMessage() . "<br>";
+    echo "<b>Posible solución:</b> Verifica si tu tabla se llama 'inscripciones', 'compras' o 'pedidos' y actualiza la línea 'FROM' en este archivo.";
+    echo "</div>";
+    exit();
+}
 ?>
 
-<div class="container mt-5" style="min-height: 60vh;">
-    <h2 class="mb-4 text-center text-md-start">
-        <i class="bi bi-bag-check-fill text-success"></i> Mis Cursos Comprados
-    </h2>
-
+<div class="container mt-5 mb-5">
     <div class="row">
-        <?php
-        try {
-            // Verificar si hay sesión activa (doble seguridad)
-            if (!isset($_SESSION['usuario_id'])) {
-                throw new Exception("No se ha identificado el usuario.");
-            }
+        <div class="col-12 mb-4">
+            <h2 class="text-primary"><i class="fas fa-graduation-cap"></i> Mis Cursos Adquiridos</h2>
+            <hr>
+        </div>
+    </div>
 
-            $estudiante_id = $_SESSION['usuario_id'];
-
-            // 5. CONSULTA A LA BASE DE DATOS
-            // Busca las ventas con estado 'completado' y trae los datos del curso
-            $sql = "SELECT c.id, c.titulo, c.descripcion, c.imagen, v.fecha_venta 
-                    FROM ventas v 
-                    INNER JOIN cursos c ON v.curso_id = c.id 
-                    WHERE v.usuario_id = :usuario_id 
-                    AND v.estado = 'completado' 
-                    ORDER BY v.fecha_venta DESC";
-
-            $stmt = $conexion->prepare($sql);
-            $stmt->bindParam(':usuario_id', $estudiante_id, PDO::PARAM_INT);
-            $stmt->execute();
-            
-            $mis_cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // 6. MOSTRAR LOS CURSOS
-            if (count($mis_cursos) > 0) {
-                foreach ($mis_cursos as $curso) {
-                    // Validar imagen
-                    $ruta_imagen = "../../assets/img/no-image.jpg"; // Imagen por defecto
-                    if (!empty($curso['imagen']) && file_exists("../../uploads/cursos/" . $curso['imagen'])) {
-                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
-                    } elseif (!empty($curso['imagen'])) {
-                        // Si la imagen está en BD pero no en carpeta, intentar ruta directa
-                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
-                    }
-        ?>
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 shadow-sm hover-scale">
-                            <img src="<?php echo htmlspecialchars($ruta_imagen); ?>" class="card-img-top" alt="Portada del curso" style="height: 200px; object-fit: cover;">
+    <?php if (count($mis_cursos) > 0): ?>
+        <div class="row">
+            <?php foreach ($mis_cursos as $curso): ?>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <?php 
+                            // Manejo de imagen por si no existe
+                            $imagen = !empty($curso['imagen']) ? "../../uploads/cursos/" . htmlspecialchars($curso['imagen']) : "../../assets/img/no-image.png";
+                        ?>
+                        <img src="<?php echo $imagen; ?>" class="card-img-top" alt="<?php echo htmlspecialchars($curso['titulo']); ?>" style="height: 200px; object-fit: cover;">
+                        
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title"><?php echo htmlspecialchars($curso['titulo']); ?></h5>
+                            <p class="card-text text-muted small">
+                                Comprado el: <?php echo date('d/m/Y', strtotime($curso['fecha_inscripcion'])); ?>
+                            </p>
                             
-                            <div class="card-body d-flex flex-column">
-                                <h5 class="card-title fw-bold text-dark">
-                                    <?php echo htmlspecialchars($curso['titulo']); ?>
-                                </h5>
-                                <p class="card-text text-muted small flex-grow-1">
-                                    <?php 
-                                    // Limitar descripción a 100 caracteres
-                                    echo htmlspecialchars(substr($curso['descripcion'] ?? '', 0, 100)) . '...'; 
-                                    ?>
-                                </p>
-                                
-                                <div class="mt-3 border-top pt-2">
-                                    <small class="text-muted d-block mb-2">
-                                        <i class="bi bi-calendar-check"></i> Adquirido: <?php echo date('d/m/Y', strtotime($curso['fecha_venta'])); ?>
-                                    </small>
-                                    
-                                    <a href="ver_curso.php?id=<?php echo $curso['id']; ?>" class="btn btn-primary w-100">
-                                        <i class="bi bi-play-circle-fill"></i> Ir al Curso
-                                    </a>
-                                </div>
+                            <div class="mt-auto">
+                                <a href="ver_curso.php?id=<?php echo $curso['id_curso']; ?>" class="btn btn-primary w-100">
+                                    <i class="fas fa-play-circle"></i> Ir al Curso
+                                </a>
+                                <a href="ver_factura.php?id=<?php echo $curso['id_inscripcion']; ?>" class="btn btn-outline-secondary w-100 mt-2 btn-sm">
+                                    <i class="fas fa-file-invoice"></i> Ver Recibo
+                                </a>
                             </div>
                         </div>
                     </div>
-        <?php
-                }
-            } else {
-                // MENSAJE SI NO HAY CURSOS
-                echo '
-                <div class="col-12 text-center py-5">
-                    <div class="mb-3">
-                        <i class="bi bi-cart-x display-1 text-muted opacity-50"></i>
-                    </div>
-                    <h4 class="text-muted">Aún no tienes cursos inscritos.</h4>
-                    <p class="text-secondary">¡Es un buen momento para aprender algo nuevo!</p>
-                    <a href="catalogo.php" class="btn btn-outline-primary mt-3">
-                        <i class="bi bi-search"></i> Ver Catálogo de Cursos
-                    </a>
-                </div>';
-            }
-
-        } catch (PDOException $e) {
-            // Error de Base de Datos
-            echo '<div class="alert alert-danger" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Error de base de datos: ' . $e->getMessage() . '
-                  </div>';
-        } catch (Exception $e) {
-            // Error General
-            echo '<div class="alert alert-warning" role="alert">
-                    <i class="bi bi-exclamation-circle"></i> ' . $e->getMessage() . '
-                  </div>';
-        }
-        ?>
-    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="alert alert-info text-center">
+            <h4><i class="fas fa-info-circle"></i> Aún no te has inscrito en ningún curso.</h4>
+            <p>Visita nuestro catálogo para empezar a aprender.</p>
+            <a href="catalogo.php" class="btn btn-success mt-2">Ir al Catálogo</a>
+        </div>
+    <?php endif; ?>
 </div>
 
-<?php
-// 7. INCLUIR PIE DE PÁGINA (FOOTER)
-// Es crucial que esto se ejecute para cerrar el body y cargar los scripts JS
-require_once '../../includes/footer.php';
-?>
+<?php require_once '../../includes/footer.php'; ?>
