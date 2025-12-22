@@ -22,10 +22,11 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Eduacademy </title>
+    <title>Eduacademy</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
         body {
@@ -77,6 +78,13 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/dashboard.php">Panel</a>
                 </li>
+                
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/biblioteca.php">
+                        <i class="bi bi-book-half"></i> Biblioteca
+                    </a>
+                </li>
+                
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/admin/usuarios.php">Usuarios</a>
                 </li>
@@ -100,6 +108,13 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/dashboard.php">Mi Panel</a>
                 </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/biblioteca.php">
+                        <i class="bi bi-book"></i> Biblioteca
+                    </a>
+                </li>
+
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo $base_url; ?>/modules/estudiante/catalogo.php">Catálogo</a>
                 </li>
