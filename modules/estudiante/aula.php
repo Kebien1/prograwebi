@@ -45,18 +45,16 @@ if ($acceso_total || $leccionActual['es_gratis'] == 1) {
     $puede_ver_video_actual = true;
 }
 
-// 5. NUEVO: Obtener Recursos de la lección actual
-// Asumimos que la tabla se llama 'recursos' y tiene 'leccion_id'
-$recursos = [];
+// 5. CORREGIDO: Obtener Recursos de la lección actual (Tabla 'materiales')
+$materiales = [];
 if (isset($leccionActual['id'])) {
-    // Intenta buscar los recursos. Si la tabla tiene otro nombre, ajusta esta línea.
     try {
-        $stmtRec = $conexion->prepare("SELECT * FROM recursos WHERE leccion_id = ?");
+        // Corregido: Se consulta la tabla 'materiales' en lugar de 'recursos'
+        $stmtRec = $conexion->prepare("SELECT * FROM materiales WHERE leccion_id = ?");
         $stmtRec->execute([$leccionActual['id']]);
-        $recursos = $stmtRec->fetchAll();
+        $materiales = $stmtRec->fetchAll();
     } catch (Exception $e) {
-        // Si la tabla no existe, no falla, simplemente no muestra recursos
-        $recursos = [];
+        $materiales = [];
     }
 }
 
@@ -123,16 +121,12 @@ require_once '../../includes/header.php';
                 <?php elseif ($puede_ver_video_actual): ?>
                     <div class="ratio ratio-16x9 w-100 h-100" style="max-height: 85vh;">
                          <?php 
-                            // CORRECCIÓN: Usamos 'video_url' que es como se llama en tu BD original
                             $url = $leccionActual['video_url']; 
-                            
-                            // Lógica mejorada para YouTube
                             $esYoutube = (stripos($url, 'youtube.com') !== false || stripos($url, 'youtu.be') !== false);
                         ?>
 
                         <?php if($esYoutube): ?>
                             <?php
-                                // Extraer ID de YouTube (Soporta formatos cortos y largos)
                                 $videoId = '';
                                 $patron = '%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/ ]{11})%i';
                                 if(preg_match($patron, $url, $match)) {
@@ -163,10 +157,10 @@ require_once '../../includes/header.php';
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active fw-bold" id="desc-tab" data-bs-toggle="tab" data-bs-target="#desc" type="button">Descripción</button>
                     </li>
-                    <?php if(count($recursos) > 0 && $puede_ver_video_actual): ?>
+                    <?php if(count($materiales) > 0 && $puede_ver_video_actual): ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link fw-bold" id="recursos-tab" data-bs-toggle="tab" data-bs-target="#recursos" type="button">
-                            Recursos <span class="badge bg-secondary ms-1"><?php echo count($recursos); ?></span>
+                            Recursos <span class="badge bg-secondary ms-1"><?php echo count($materiales); ?></span>
                         </button>
                     </li>
                     <?php endif; ?>
@@ -183,18 +177,14 @@ require_once '../../includes/header.php';
                     <div class="tab-pane fade" id="recursos" role="tabpanel">
                         <h5 class="fw-bold mb-3">Material de descarga</h5>
                         <div class="list-group">
-                            <?php foreach($recursos as $rec): ?>
-                                <?php 
-                                    // Ajusta esta ruta si tus archivos se guardan en otra carpeta
-                                    $rutaArchivo = "../../uploads/recursos/" . $rec['archivo']; 
-                                ?>
-                                <a href="<?php echo $rutaArchivo; ?>" target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
+                            <?php foreach($materiales as $mat): ?>
+                                <a href="ver_archivo.php?id=<?php echo $mat['id']; ?>&tipo=material" target="_blank" class="list-group-item list-group-item-action d-flex align-items-center">
                                     <div class="bg-light p-2 rounded me-3 text-danger">
                                         <i class="bi bi-file-earmark-pdf-fill fs-4"></i>
                                     </div>
                                     <div>
-                                        <h6 class="mb-0 fw-bold text-dark"><?php echo htmlspecialchars($rec['titulo'] ?? 'Archivo adjunto'); ?></h6>
-                                        <small class="text-muted">Clic para descargar</small>
+                                        <h6 class="mb-0 fw-bold text-dark"><?php echo htmlspecialchars($mat['titulo'] ?? 'Archivo adjunto'); ?></h6>
+                                        <small class="text-muted">Clic para ver/descargar</small>
                                     </div>
                                     <i class="bi bi-download ms-auto text-muted"></i>
                                 </a>
@@ -220,7 +210,6 @@ require_once '../../includes/header.php';
                 <div class="list-group list-group-flush">
                     <?php foreach ($lecciones as $index => $leccion): ?>
                         <?php 
-                            // Truco de Sección
                             $esSeccion = (stripos($leccion['titulo'], 'SECCIÓN:') !== false || stripos($leccion['titulo'], 'MODULO:') !== false);
 
                             if ($esSeccion): 
