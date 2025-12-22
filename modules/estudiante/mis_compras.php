@@ -1,116 +1,125 @@
 <?php
+// modules/estudiante/mis_compras.php
+
+// 1. ACTIVAR REPORTE DE ERRORES (Vital para detectar fallos en lugar de ver pantalla blanca)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// 2. INCLUIR ARCHIVOS DE CONFIGURACIÓN Y SEGURIDAD
 require_once '../../config/bd.php';
 require_once '../../includes/security.php';
-verificarRol(3); 
+
+// 3. VERIFICAR QUE EL USUARIO SEA ESTUDIANTE (Rol 3)
+verificarRol(3);
+
+// 4. INCLUIR EL ENCABEZADO (HEADER)
 require_once '../../includes/header.php';
-
-$uid = $_SESSION['usuario_id'];
-
-// Consultar Cursos
-$sqlCursos = "SELECT c.id, c.titulo, c.descripcion, comp.fecha_compra 
-              FROM compras comp 
-              JOIN cursos c ON comp.item_id = c.id 
-              WHERE comp.usuario_id = ? AND comp.tipo_item = 'curso'
-              ORDER BY comp.fecha_compra DESC";
-$listaCursos = $conexion->prepare($sqlCursos);
-$listaCursos->execute([$uid]);
-$misCursos = $listaCursos->fetchAll();
-
-// Consultar Libros
-$sqlLibros = "SELECT l.id, l.titulo, l.archivo_pdf, comp.fecha_compra 
-              FROM compras comp 
-              JOIN libros l ON comp.item_id = l.id 
-              WHERE comp.usuario_id = ? AND comp.tipo_item = 'libro'
-              ORDER BY comp.fecha_compra DESC";
-$listaLibros = $conexion->prepare($sqlLibros);
-$listaLibros->execute([$uid]);
-$misLibros = $listaLibros->fetchAll();
 ?>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark">Mis Adquisiciones</h2>
-        <a href="catalogo.php" class="btn btn-outline-dark rounded-pill">
-            <i class="bi bi-cart-plus"></i> Ir al Catálogo
-        </a>
-    </div>
+<div class="container mt-5" style="min-height: 60vh;">
+    <h2 class="mb-4 text-center text-md-start">
+        <i class="bi bi-bag-check-fill text-success"></i> Mis Cursos Comprados
+    </h2>
 
-    <?php if(isset($_GET['exito'])): ?>
-        <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 mb-4">
-            <i class="bi bi-check-circle-fill me-2"></i> ¡Compra exitosa! Ya tienes acceso a tu nuevo contenido.
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
+    <div class="row">
+        <?php
+        try {
+            // Verificar si hay sesión activa (doble seguridad)
+            if (!isset($_SESSION['usuario_id'])) {
+                throw new Exception("No se ha identificado el usuario.");
+            }
 
-    <div class="row g-4">
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-white py-3 border-bottom-0">
-                    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-laptop"></i> Mis Cursos Activos</h5>
-                </div>
-                <div class="card-body p-0">
-                    <?php if(empty($misCursos)): ?>
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-inbox display-4 opacity-25"></i>
-                            <p class="mt-2 small">No tienes cursos todavía.</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="list-group list-group-flush">
-                            <?php foreach($misCursos as $c): ?>
-                                <div class="list-group-item p-3 border-0 border-bottom">
-                                    <h6 class="fw-bold mb-1"><?php echo htmlspecialchars($c['titulo']); ?></h6>
-                                    <div class="d-flex justify-content-between align-items-end mt-2">
-                                        <small class="text-muted">
-                                            <i class="bi bi-calendar3"></i> <?php echo date('d/m/Y', strtotime($c['fecha_compra'])); ?>
-                                        </small>
-                                        <a href="aula.php?id=<?php echo $c['id']; ?>" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm">
-                                            <i class="bi bi-play-fill"></i> Ir al Aula
-                                        </a>
-                                    </div>
+            $estudiante_id = $_SESSION['usuario_id'];
+
+            // 5. CONSULTA A LA BASE DE DATOS
+            // Busca las ventas con estado 'completado' y trae los datos del curso
+            $sql = "SELECT c.id, c.titulo, c.descripcion, c.imagen, v.fecha_venta 
+                    FROM ventas v 
+                    INNER JOIN cursos c ON v.curso_id = c.id 
+                    WHERE v.usuario_id = :usuario_id 
+                    AND v.estado = 'completado' 
+                    ORDER BY v.fecha_venta DESC";
+
+            $stmt = $conexion->prepare($sql);
+            $stmt->bindParam(':usuario_id', $estudiante_id, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $mis_cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 6. MOSTRAR LOS CURSOS
+            if (count($mis_cursos) > 0) {
+                foreach ($mis_cursos as $curso) {
+                    // Validar imagen
+                    $ruta_imagen = "../../assets/img/no-image.jpg"; // Imagen por defecto
+                    if (!empty($curso['imagen']) && file_exists("../../uploads/cursos/" . $curso['imagen'])) {
+                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
+                    } elseif (!empty($curso['imagen'])) {
+                        // Si la imagen está en BD pero no en carpeta, intentar ruta directa
+                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
+                    }
+        ?>
+                    <div class="col-md-4 mb-4">
+                        <div class="card h-100 shadow-sm hover-scale">
+                            <img src="<?php echo htmlspecialchars($ruta_imagen); ?>" class="card-img-top" alt="Portada del curso" style="height: 200px; object-fit: cover;">
+                            
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title fw-bold text-dark">
+                                    <?php echo htmlspecialchars($curso['titulo']); ?>
+                                </h5>
+                                <p class="card-text text-muted small flex-grow-1">
+                                    <?php 
+                                    // Limitar descripción a 100 caracteres
+                                    echo htmlspecialchars(substr($curso['descripcion'] ?? '', 0, 100)) . '...'; 
+                                    ?>
+                                </p>
+                                
+                                <div class="mt-3 border-top pt-2">
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="bi bi-calendar-check"></i> Adquirido: <?php echo date('d/m/Y', strtotime($curso['fecha_venta'])); ?>
+                                    </small>
+                                    
+                                    <a href="ver_curso.php?id=<?php echo $curso['id']; ?>" class="btn btn-primary w-100">
+                                        <i class="bi bi-play-circle-fill"></i> Ir al Curso
+                                    </a>
                                 </div>
-                            <?php endforeach; ?>
+                            </div>
                         </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+                    </div>
+        <?php
+                }
+            } else {
+                // MENSAJE SI NO HAY CURSOS
+                echo '
+                <div class="col-12 text-center py-5">
+                    <div class="mb-3">
+                        <i class="bi bi-cart-x display-1 text-muted opacity-50"></i>
+                    </div>
+                    <h4 class="text-muted">Aún no tienes cursos inscritos.</h4>
+                    <p class="text-secondary">¡Es un buen momento para aprender algo nuevo!</p>
+                    <a href="catalogo.php" class="btn btn-outline-primary mt-3">
+                        <i class="bi bi-search"></i> Ver Catálogo de Cursos
+                    </a>
+                </div>';
+            }
 
-        <div class="col-md-6">
-            <div class="card h-100 border-0 shadow-sm">
-                <div class="card-header bg-white py-3 border-bottom-0">
-                    <h5 class="fw-bold text-success mb-0"><i class="bi bi-book"></i> Mi Biblioteca Digital</h5>
-                </div>
-                <div class="card-body p-0">
-                    <?php if(empty($misLibros)): ?>
-                        <div class="text-center py-5 text-muted">
-                            <i class="bi bi-journals display-4 opacity-25"></i>
-                            <p class="mt-2 small">Tu biblioteca está vacía.</p>
-                        </div>
-                    <?php else: ?>
-                        <div class="list-group list-group-flush">
-                            <?php foreach($misLibros as $l): ?>
-                                <div class="list-group-item p-3 border-0 border-bottom">
-                                    <h6 class="fw-bold mb-1"><?php echo htmlspecialchars($l['titulo']); ?></h6>
-                                    <div class="d-flex justify-content-between align-items-end mt-2">
-                                        <small class="text-muted">
-                                            <i class="bi bi-calendar3"></i> <?php echo date('d/m/Y', strtotime($l['fecha_compra'])); ?>
-                                        </small>
-                                        
-                                        <a href="ver_archivo.php?id=<?php echo $l['id']; ?>" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                            <i class="bi bi-eye"></i> Leer Online
-                                        </a>
-
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
+        } catch (PDOException $e) {
+            // Error de Base de Datos
+            echo '<div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Error de base de datos: ' . $e->getMessage() . '
+                  </div>';
+        } catch (Exception $e) {
+            // Error General
+            echo '<div class="alert alert-warning" role="alert">
+                    <i class="bi bi-exclamation-circle"></i> ' . $e->getMessage() . '
+                  </div>';
+        }
+        ?>
     </div>
 </div>
 
-<?php 
-require_once '../../includes/footer_admin.php'; 
+<?php
+// 7. INCLUIR PIE DE PÁGINA (FOOTER)
+// Es crucial que esto se ejecute para cerrar el body y cargar los scripts JS
+require_once '../../includes/footer.php';
 ?>
