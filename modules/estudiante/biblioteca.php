@@ -58,4 +58,6 @@ require_once '../../includes/header.php';
 }
 </style>
 
-<?php include('../../includes/footer.php'); ?>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

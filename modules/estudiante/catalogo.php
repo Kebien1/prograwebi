@@ -115,4 +115,6 @@ if (isset($_SESSION['usuario_id'])) {
     }
 </style>
 
-<?php require_once '../../includes/footer.php'; ?>
+<?php 
+require_once '../../includes/footer_admin.php'; 
+?>

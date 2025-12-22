@@ -118,8 +118,6 @@ require_once '../../includes/header.php';
     </div>
 </div>
 
-<?php
-// 7. INCLUIR PIE DE PÁGINA (FOOTER)
-// Es crucial que esto se ejecute para cerrar el body y cargar los scripts JS
-require_once '../../includes/footer.php';
+<?php 
+require_once '../../includes/footer_admin.php'; 
 ?>
