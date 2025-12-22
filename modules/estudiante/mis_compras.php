@@ -13,7 +13,7 @@ require_once '../../includes/security.php';
 // 3. VERIFICAR QUE EL USUARIO SEA ESTUDIANTE (Rol 3)
 verificarRol(3);
 
-// 4. INCLUIR EL ENCABEZADO (HEADER)
+// 4. INCLUIR EL ENCABEZADO
 require_once '../../includes/header.php';
 ?>
 
@@ -25,18 +25,16 @@ require_once '../../includes/header.php';
     <div class="row">
         <?php
         try {
-            // Verificar si hay sesión activa
             if (!isset($_SESSION['usuario_id'])) {
                 throw new Exception("No se ha identificado el usuario.");
             }
 
             $estudiante_id = $_SESSION['usuario_id'];
 
-            // 5. CONSULTA A LA BASE DE DATOS (CORREGIDA)
-            // Se cambió la tabla 'ventas' por 'compras'
-            // Se cambiaron los nombres de columnas para coincidir con checkout_procesar.php
-            // (item_id en lugar de curso_id, fecha_compra en lugar de fecha_venta)
-            $sql = "SELECT c.id, c.titulo, c.descripcion, c.imagen, co.fecha_compra as fecha_venta 
+            // 5. CONSULTA CORREGIDA (Usa 'c.foto' en lugar de 'c.imagen')
+            // IMPORTANTE: Si en tu base de datos la columna se llama 'img' o 'portada',
+            // cambia 'c.foto' por ese nombre justo aquí abajo.
+            $sql = "SELECT c.id, c.titulo, c.descripcion, c.foto, co.fecha_compra as fecha_venta 
                     FROM compras co 
                     INNER JOIN cursos c ON co.item_id = c.id 
                     WHERE co.usuario_id = :usuario_id 
@@ -52,13 +50,18 @@ require_once '../../includes/header.php';
             // 6. MOSTRAR LOS CURSOS
             if (count($mis_cursos) > 0) {
                 foreach ($mis_cursos as $curso) {
-                    // Validar imagen
+                    
+                    // --- LÓGICA DE FOTO CORREGIDA ---
+                    // Definir imagen por defecto
                     $ruta_imagen = "../../assets/img/no-image.jpg"; 
-                    if (!empty($curso['imagen']) && file_exists("../../uploads/cursos/" . $curso['imagen'])) {
-                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
-                    } elseif (!empty($curso['imagen'])) {
-                        $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
+                    
+                    // Verificamos si existe 'foto' y si el archivo real existe
+                    $nombre_foto = $curso['foto'] ?? ''; // Usa operador de fusión null para evitar errores
+
+                    if (!empty($nombre_foto) && file_exists("../../uploads/cursos/" . $nombre_foto)) {
+                        $ruta_imagen = "../../uploads/cursos/" . $nombre_foto;
                     }
+                    // --------------------------------
         ?>
                     <div class="col-md-4 mb-4">
                         <div class="card h-100 shadow-sm hover-scale">
@@ -70,7 +73,6 @@ require_once '../../includes/header.php';
                                 </h5>
                                 <p class="card-text text-muted small flex-grow-1">
                                     <?php 
-                                    // Limitar descripción a 100 caracteres
                                     echo htmlspecialchars(substr($curso['descripcion'] ?? '', 0, 100)) . '...'; 
                                     ?>
                                 </p>
@@ -90,28 +92,17 @@ require_once '../../includes/header.php';
         <?php
                 }
             } else {
-                // MENSAJE SI NO HAY CURSOS
                 echo '
                 <div class="col-12 text-center py-5">
-                    <div class="mb-3">
-                        <i class="bi bi-cart-x display-1 text-muted opacity-50"></i>
-                    </div>
                     <h4 class="text-muted">Aún no tienes cursos inscritos.</h4>
-                    <p class="text-secondary">¡Es un buen momento para aprender algo nuevo!</p>
-                    <a href="catalogo.php" class="btn btn-outline-primary mt-3">
-                        <i class="bi bi-search"></i> Ver Catálogo de Cursos
-                    </a>
+                    <a href="catalogo.php" class="btn btn-outline-primary mt-3">Ver Catálogo</a>
                 </div>';
             }
 
         } catch (PDOException $e) {
-            echo '<div class="alert alert-danger" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Error de base de datos: ' . $e->getMessage() . '
-                  </div>';
+            echo '<div class="alert alert-danger">Error de base de datos: ' . $e->getMessage() . '</div>';
         } catch (Exception $e) {
-            echo '<div class="alert alert-warning" role="alert">
-                    <i class="bi bi-exclamation-circle"></i> ' . $e->getMessage() . '
-                  </div>';
+            echo '<div class="alert alert-warning">' . $e->getMessage() . '</div>';
         }
         ?>
     </div>
