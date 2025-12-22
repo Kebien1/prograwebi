@@ -43,7 +43,7 @@ require_once '../../includes/header.php';
         </div>
     <?php else: ?>
         <div class="bg-primary text-white p-5 text-center rounded-bottom shadow">
-            <h1 class="fw-bold">Bienvenido a EduPlatform</h1>
+            <h1 class="fw-bold">Bienvenido a Eduacademy</h1>
             <p class="lead">Explora nuestro catálogo y empieza a aprender hoy.</p>
             <a href="catalogo.php" class="btn btn-light text-primary fw-bold rounded-pill mt-3 px-4">Explorar Catálogo</a>
         </div>

@@ -163,7 +163,7 @@ require_once 'includes/header.php';
                                 <?php 
                                     $ruta_imagen = "uploads/cursos/" . $c['imagen_portada'];
                                     if (empty($c['imagen_portada']) || !file_exists($ruta_imagen)) {
-                                        $ruta_imagen = "https://via.placeholder.com/400x225?text=Curso+EduPlatform";
+                                        $ruta_imagen = "https://via.placeholder.com/400x225?text=Curso+Eduacademy";
                                     }
                                     $precioCurso = isset($c['precio']) ? $c['precio'] : 0;
                                 ?>
@@ -300,7 +300,7 @@ require_once 'includes/header.php';
         <div class="container">
             <div class="row g-4 mb-4">
                 <div class="col-lg-4 col-md-6">
-                    <h5 class="text-white fw-bold mb-3"><i class="bi bi-mortarboard-fill text-warning"></i> EduPlatform</h5>
+                    <h5 class="text-white fw-bold mb-3"><i class="bi bi-mortarboard-fill text-warning"></i> Eduacademy</h5>
                     <p class="small">Somos una plataforma educativa comprometida con la democratización del conocimiento. Aprende a tu ritmo con los mejores profesionales.</p>
                 </div>
                 <div class="col-lg-4 col-md-6">
@@ -320,7 +320,7 @@ require_once 'includes/header.php';
             </div>
             <hr class="border-secondary opacity-25">
             <div class="text-center small">
-                &copy; <?php echo date('Y'); ?> EduPlatform. Todos los derechos reservados.
+                &copy; <?php echo date('Y'); ?> Eduacademy. Todos los derechos reservados.
             </div>
         </div>
     </footer>

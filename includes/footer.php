@@ -3,7 +3,7 @@
             <div class="row g-4 mb-4">
                 <div class="col-lg-4 col-md-6">
                     <h5 class="text-warning fw-bold mb-3">
-                        <i class="bi bi-mortarboard-fill"></i> EduPlatform
+                        <i class="bi bi-mortarboard-fill"></i> Eduacademy 
                     </h5>
                     <p class="text-secondary small">
                         Transformamos el aprendizaje con tecnología. Accede a cursos de alta calidad impartidos por expertos de la industria, disponibles 24/7.
@@ -50,7 +50,7 @@
             
             <div class="row align-items-center py-2">
                 <div class="col-md-6 text-center text-md-start small text-secondary">
-                    &copy; <?php echo date('Y'); ?> <strong>EduPlatform</strong>. Todos los derechos reservados.
+                    &copy; <?php echo date('Y'); ?> <strong>Eduacademy </strong>. Todos los derechos reservados.
                 </div>
                 <div class="col-md-6 text-center text-md-end small">
                     <span class="text-secondary">Hecho con <i class="bi bi-heart-fill text-danger"></i> para estudiantes.</span>

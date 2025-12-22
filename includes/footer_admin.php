@@ -3,7 +3,7 @@
 ?>
 </div> <footer class="bg-white text-center py-3 mt-auto border-top">
     <div class="container small text-muted">
-        &copy; <?php echo date('Y'); ?> EduPlatform - Panel de Administración
+        &copy; <?php echo date('Y'); ?> Eduacademy - Panel de Administración
     </div>
 </footer>
 
