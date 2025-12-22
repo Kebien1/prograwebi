@@ -1,109 +1,218 @@
 <?php
 // modules/estudiante/mis_compras.php
-
-// 1. ACTIVAR REPORTE DE ERRORES
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// 2. INCLUIR ARCHIVOS DE CONFIGURACIÓN Y SEGURIDAD
 require_once '../../config/bd.php';
 require_once '../../includes/security.php';
-
-// 3. VERIFICAR QUE EL USUARIO SEA ESTUDIANTE (Rol 3)
-verificarRol(3);
-
-// 4. INCLUIR EL ENCABEZADO
+verificarRol(3); // Solo estudiantes
 require_once '../../includes/header.php';
+
+$usuario_id = $_SESSION['usuario_id'];
+
+// Obtener todas las compras del estudiante con información completa
+try {
+    $sql = "SELECT 
+                co.id as compra_id,
+                co.item_id,
+                co.tipo_item,
+                co.monto_pagado,
+                co.fecha_compra,
+                co.factura_id,
+                c.titulo as curso_titulo,
+                c.descripcion as curso_descripcion,
+                c.imagen_portada as curso_imagen,
+                c.duracion as curso_duracion,
+                c.nivel as curso_nivel,
+                u.nombre_completo as instructor,
+                f.codigo_factura,
+                f.total as factura_total
+            FROM compras co
+            LEFT JOIN cursos c ON co.item_id = c.id AND co.tipo_item = 'curso'
+            LEFT JOIN usuarios u ON c.docente_id = u.id
+            LEFT JOIN facturas f ON co.factura_id = f.id
+            WHERE co.usuario_id = :usuario_id
+            ORDER BY co.fecha_compra DESC";
+    
+    $stmt = $conexion->prepare($sql);
+    $stmt->bindParam(':usuario_id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $compras = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+} catch (Exception $e) {
+    $compras = [];
+    $error_mensaje = "Error al cargar tus compras: " . $e->getMessage();
+}
 ?>
 
-<div class="container mt-5" style="min-height: 60vh;">
-    <h2 class="mb-4 text-center text-md-start">
-        <i class="bi bi-bag-check-fill text-success"></i> Mis Cursos Comprados
-    </h2>
+<div class="container mt-5 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark">
+                <i class="bi bi-bag-check-fill text-success"></i> Mis Compras
+            </h2>
+            <p class="text-muted">Historial completo de tus adquisiciones</p>
+        </div>
+        <a href="catalogo.php" class="btn btn-outline-primary rounded-pill">
+            <i class="bi bi-plus-circle"></i> Comprar Más Cursos
+        </a>
+    </div>
 
-    <div class="row">
-        <?php
-        try {
-            if (!isset($_SESSION['usuario_id'])) {
-                throw new Exception("No se ha identificado el usuario.");
-            }
+    <?php if(isset($error_mensaje)): ?>
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> <?php echo $error_mensaje; ?>
+        </div>
+    <?php endif; ?>
 
-            $estudiante_id = $_SESSION['usuario_id'];
-
-            // 5. CONSULTA SEGURA (Sin pedir imagen)
-            // Se eliminó 'c.imagen' y 'c.foto' del SELECT para evitar errores.
-            // Solo traemos ID, Titulo, Descripcion y Fecha.
-            $sql = "SELECT c.id, c.titulo, c.descripcion, co.fecha_compra as fecha_venta 
-                    FROM compras co 
-                    INNER JOIN cursos c ON co.item_id = c.id 
-                    WHERE co.usuario_id = :usuario_id 
-                    AND co.tipo_item = 'curso'
-                    ORDER BY co.fecha_compra DESC";
-
-            $stmt = $conexion->prepare($sql);
-            $stmt->bindParam(':usuario_id', $estudiante_id, PDO::PARAM_INT);
-            $stmt->execute();
-            
-            $mis_cursos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // 6. MOSTRAR LOS CURSOS
-            if (count($mis_cursos) > 0) {
-                foreach ($mis_cursos as $curso) {
-                    
-                    // --- IMAGEN POR DEFECTO ---
-                    // Como no traemos imagen de la BD, usamos siempre la genérica.
-                    $ruta_imagen = "../../assets/img/no-image.jpg"; 
-                    
-                    // Opcional: Si quisieras usar una imagen fija del sistema puedes cambiar la ruta arriba.
-                    // --------------------------
-        ?>
-                    <div class="col-md-4 mb-4">
-                        <div class="card h-100 shadow-sm hover-scale">
-                            <img src="<?php echo htmlspecialchars($ruta_imagen); ?>" class="card-img-top" alt="Portada del curso" style="height: 200px; object-fit: cover;">
+    <?php if(count($compras) > 0): ?>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            <?php foreach($compras as $compra): ?>
+                <div class="col">
+                    <div class="card h-100 shadow-sm border-0 hover-scale">
+                        <?php 
+                            // Determinar la imagen
+                            $ruta_imagen = "../../uploads/cursos/" . $compra['curso_imagen'];
+                            if(empty($compra['curso_imagen']) || !file_exists($ruta_imagen)) {
+                                $ruta_imagen = "https://via.placeholder.com/400x225?text=Curso+Comprado";
+                            }
+                        ?>
+                        
+                        <div class="position-relative">
+                            <img src="<?php echo htmlspecialchars($ruta_imagen); ?>" 
+                                 class="card-img-top" 
+                                 style="height: 200px; object-fit: cover;" 
+                                 alt="Portada del curso">
                             
-                            <div class="card-body d-flex flex-column">
-                                <h5 class="card-title fw-bold text-dark">
-                                    <?php echo htmlspecialchars($curso['titulo']); ?>
-                                </h5>
-                                <p class="card-text text-muted small flex-grow-1">
-                                    <?php 
-                                    // Limitar descripción a 100 caracteres
-                                    echo htmlspecialchars(substr($curso['descripcion'] ?? '', 0, 100)) . '...'; 
-                                    ?>
-                                </p>
-                                
-                                <div class="mt-3 border-top pt-2">
-                                    <small class="text-muted d-block mb-2">
-                                        <i class="bi bi-calendar-check"></i> Adquirido: <?php echo date('d/m/Y', strtotime($curso['fecha_venta'])); ?>
+                            <span class="position-absolute top-0 end-0 m-2 badge rounded-pill bg-success shadow">
+                                <i class="bi bi-check-circle-fill"></i> Comprado
+                            </span>
+                        </div>
+
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title fw-bold text-dark mb-3">
+                                <?php echo htmlspecialchars($compra['curso_titulo'] ?? 'Curso Digital'); ?>
+                            </h5>
+                            
+                            <p class="card-text text-muted small flex-grow-1">
+                                <?php 
+                                    $desc = $compra['curso_descripcion'] ?? 'Contenido educativo digital';
+                                    echo htmlspecialchars(substr($desc, 0, 100)) . '...'; 
+                                ?>
+                            </p>
+
+                            <?php if($compra['tipo_item'] == 'curso'): ?>
+                                <div class="mb-3">
+                                    <span class="badge bg-primary bg-opacity-10 text-primary me-2">
+                                        <i class="bi bi-bar-chart"></i> <?php echo htmlspecialchars($compra['curso_nivel'] ?? 'General'); ?>
+                                    </span>
+                                    <span class="badge bg-info bg-opacity-10 text-info">
+                                        <i class="bi bi-clock"></i> <?php echo htmlspecialchars($compra['curso_duracion'] ?? 'Consultar'); ?>
+                                    </span>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="border-top pt-3 mt-auto">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar-check"></i> 
+                                        <?php echo date('d/m/Y', strtotime($compra['fecha_compra'])); ?>
                                     </small>
+                                    <span class="fw-bold text-success">
+                                        $<?php echo number_format($compra['monto_pagado'], 2); ?>
+                                    </span>
+                                </div>
+
+                                <?php if($compra['instructor']): ?>
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="bi bi-person"></i> <?php echo htmlspecialchars($compra['instructor']); ?>
+                                    </small>
+                                <?php endif; ?>
+
+                                <div class="d-grid gap-2">
+                                    <?php if($compra['tipo_item'] == 'curso'): ?>
+                                        <a href="aula.php?id=<?php echo $compra['item_id']; ?>" 
+                                           class="btn btn-primary rounded-pill fw-bold">
+                                            <i class="bi bi-play-circle-fill"></i> Ir al Curso
+                                        </a>
+                                    <?php endif; ?>
                                     
-                                    <a href="ver_curso.php?id=<?php echo $curso['id']; ?>" class="btn btn-primary w-100">
-                                        <i class="bi bi-play-circle-fill"></i> Ir al Curso
-                                    </a>
+                                    <?php if($compra['factura_id']): ?>
+                                        <a href="ver_factura.php?id=<?php echo $compra['factura_id']; ?>" 
+                                           class="btn btn-outline-secondary btn-sm rounded-pill" 
+                                           target="_blank">
+                                            <i class="bi bi-receipt"></i> Ver Recibo
+                                        </a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
                     </div>
-        <?php
-                }
-            } else {
-                echo '
-                <div class="col-12 text-center py-5">
-                    <h4 class="text-muted">Aún no tienes cursos inscritos.</h4>
-                    <a href="catalogo.php" class="btn btn-outline-primary mt-3">Ver Catálogo</a>
-                </div>';
-            }
+                </div>
+            <?php endforeach; ?>
+        </div>
 
-        } catch (PDOException $e) {
-            echo '<div class="alert alert-danger">Error de base de datos: ' . $e->getMessage() . '</div>';
-        } catch (Exception $e) {
-            echo '<div class="alert alert-warning">' . $e->getMessage() . '</div>';
-        }
-        ?>
-    </div>
+        <!-- Resumen de Compras -->
+        <div class="card border-0 shadow-sm mt-5">
+            <div class="card-body">
+                <h5 class="fw-bold mb-3">
+                    <i class="bi bi-graph-up"></i> Resumen de Compras
+                </h5>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded">
+                            <h3 class="fw-bold text-primary"><?php echo count($compras); ?></h3>
+                            <small class="text-muted">Total de Compras</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded">
+                            <h3 class="fw-bold text-success">
+                                $<?php 
+                                    $total_gastado = array_sum(array_column($compras, 'monto_pagado'));
+                                    echo number_format($total_gastado, 2); 
+                                ?>
+                            </h3>
+                            <small class="text-muted">Total Invertido</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light rounded">
+                            <h3 class="fw-bold text-info">
+                                <?php 
+                                    $cursos = array_filter($compras, function($c) { 
+                                        return $c['tipo_item'] == 'curso'; 
+                                    });
+                                    echo count($cursos); 
+                                ?>
+                            </h3>
+                            <small class="text-muted">Cursos Activos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <?php else: ?>
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="bi bi-cart-x display-1 text-muted opacity-25"></i>
+            </div>
+            <h4 class="fw-bold text-dark mb-3">Aún no tienes compras</h4>
+            <p class="text-muted mb-4">
+                Explora nuestro catálogo y comienza tu viaje de aprendizaje hoy mismo.
+            </p>
+            <a href="catalogo.php" class="btn btn-primary btn-lg rounded-pill px-5">
+                <i class="bi bi-search"></i> Explorar Catálogo
+            </a>
+        </div>
+    <?php endif; ?>
 </div>
 
-<?php 
-require_once '../../includes/footer_admin.php'; 
-?>
+<style>
+.hover-scale {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.hover-scale:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+}
+</style>
+
+<?php require_once '../../includes/footer_admin.php'; ?>
