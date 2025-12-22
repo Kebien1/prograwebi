@@ -44,8 +44,8 @@ if (isset($_SESSION['usuario_id'])) {
             <div class="col">
                 <div class="card h-100 shadow-sm border-0 rounded-4 transition-hover">
                     <div class="position-relative">
-                        <?php if (!empty($curso['imagen'])): ?>
-                            <img src="../../uploads/cursos/<?php echo htmlspecialchars($curso['imagen']); ?>" 
+                        <?php if (!empty($curso['imagen_portada'])): ?>
+                            <img src="../../uploads/cursos/<?php echo htmlspecialchars($curso['imagen_portada']); ?>" 
                                  class="card-img-top rounded-top-4" style="height: 200px; object-fit: cover;" alt="Curso">
                         <?php else: ?>
                             <div class="bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center rounded-top-4" style="height: 200px;">
@@ -88,8 +88,9 @@ if (isset($_SESSION['usuario_id'])) {
                                     <input type="hidden" name="titulo" value="<?php echo htmlspecialchars($curso['titulo']); ?>">
                                     <input type="hidden" name="precio" value="<?php echo $curso['precio']; ?>">
                                     <input type="hidden" name="instructor" value="<?php echo htmlspecialchars($curso['instructor'] ?? ''); ?>">
-                                    <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($curso['imagen'] ?? ''); ?>">
-                                    <input type="hidden" name="tipo" value="curso"> <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">
+                                    <input type="hidden" name="imagen" value="<?php echo htmlspecialchars($curso['imagen_portada'] ?? ''); ?>">
+                                    <input type="hidden" name="tipo" value="curso"> 
+                                    <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold">
                                         <i class="bi bi-cart-plus me-2"></i> Agregar al Carrito
                                     </button>
                                 </form>
