@@ -57,7 +57,7 @@ if (isset($_SESSION['carrito']) && is_array($_SESSION['carrito'])) {
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
   <div class="container">
     <a class="navbar-brand fw-bold" href="<?php echo $base_url; ?>/index.php">
-        <i class="bi bi-mortarboard-fill text-primary"></i> EduPlatform
+        <i class="bi bi-mortarboard-fill text-primary"></i> Codecademy
     </a>
     
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#userNav" aria-controls="userNav" aria-expanded="false" aria-label="Toggle navigation">
