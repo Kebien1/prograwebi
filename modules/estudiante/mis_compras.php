@@ -31,10 +31,10 @@ require_once '../../includes/header.php';
 
             $estudiante_id = $_SESSION['usuario_id'];
 
-            // 5. CONSULTA CORREGIDA (Usa 'c.foto' en lugar de 'c.imagen')
-            // IMPORTANTE: Si en tu base de datos la columna se llama 'img' o 'portada',
-            // cambia 'c.foto' por ese nombre justo aquí abajo.
-            $sql = "SELECT c.id, c.titulo, c.descripcion, c.foto, co.fecha_compra as fecha_venta 
+            // 5. CONSULTA SEGURA (Sin pedir imagen)
+            // Se eliminó 'c.imagen' y 'c.foto' del SELECT para evitar errores.
+            // Solo traemos ID, Titulo, Descripcion y Fecha.
+            $sql = "SELECT c.id, c.titulo, c.descripcion, co.fecha_compra as fecha_venta 
                     FROM compras co 
                     INNER JOIN cursos c ON co.item_id = c.id 
                     WHERE co.usuario_id = :usuario_id 
@@ -51,17 +51,12 @@ require_once '../../includes/header.php';
             if (count($mis_cursos) > 0) {
                 foreach ($mis_cursos as $curso) {
                     
-                    // --- LÓGICA DE FOTO CORREGIDA ---
-                    // Definir imagen por defecto
+                    // --- IMAGEN POR DEFECTO ---
+                    // Como no traemos imagen de la BD, usamos siempre la genérica.
                     $ruta_imagen = "../../assets/img/no-image.jpg"; 
                     
-                    // Verificamos si existe 'foto' y si el archivo real existe
-                    $nombre_foto = $curso['foto'] ?? ''; // Usa operador de fusión null para evitar errores
-
-                    if (!empty($nombre_foto) && file_exists("../../uploads/cursos/" . $nombre_foto)) {
-                        $ruta_imagen = "../../uploads/cursos/" . $nombre_foto;
-                    }
-                    // --------------------------------
+                    // Opcional: Si quisieras usar una imagen fija del sistema puedes cambiar la ruta arriba.
+                    // --------------------------
         ?>
                     <div class="col-md-4 mb-4">
                         <div class="card h-100 shadow-sm hover-scale">
@@ -73,6 +68,7 @@ require_once '../../includes/header.php';
                                 </h5>
                                 <p class="card-text text-muted small flex-grow-1">
                                     <?php 
+                                    // Limitar descripción a 100 caracteres
                                     echo htmlspecialchars(substr($curso['descripcion'] ?? '', 0, 100)) . '...'; 
                                     ?>
                                 </p>
