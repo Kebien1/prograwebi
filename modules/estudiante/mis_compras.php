@@ -1,7 +1,7 @@
 <?php
 // modules/estudiante/mis_compras.php
 
-// 1. ACTIVAR REPORTE DE ERRORES (Vital para detectar fallos en lugar de ver pantalla blanca)
+// 1. ACTIVAR REPORTE DE ERRORES
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -25,21 +25,23 @@ require_once '../../includes/header.php';
     <div class="row">
         <?php
         try {
-            // Verificar si hay sesión activa (doble seguridad)
+            // Verificar si hay sesión activa
             if (!isset($_SESSION['usuario_id'])) {
                 throw new Exception("No se ha identificado el usuario.");
             }
 
             $estudiante_id = $_SESSION['usuario_id'];
 
-            // 5. CONSULTA A LA BASE DE DATOS
-            // Busca las ventas con estado 'completado' y trae los datos del curso
-            $sql = "SELECT c.id, c.titulo, c.descripcion, c.imagen, v.fecha_venta 
-                    FROM ventas v 
-                    INNER JOIN cursos c ON v.curso_id = c.id 
-                    WHERE v.usuario_id = :usuario_id 
-                    AND v.estado = 'completado' 
-                    ORDER BY v.fecha_venta DESC";
+            // 5. CONSULTA A LA BASE DE DATOS (CORREGIDA)
+            // Se cambió la tabla 'ventas' por 'compras'
+            // Se cambiaron los nombres de columnas para coincidir con checkout_procesar.php
+            // (item_id en lugar de curso_id, fecha_compra en lugar de fecha_venta)
+            $sql = "SELECT c.id, c.titulo, c.descripcion, c.imagen, co.fecha_compra as fecha_venta 
+                    FROM compras co 
+                    INNER JOIN cursos c ON co.item_id = c.id 
+                    WHERE co.usuario_id = :usuario_id 
+                    AND co.tipo_item = 'curso'
+                    ORDER BY co.fecha_compra DESC";
 
             $stmt = $conexion->prepare($sql);
             $stmt->bindParam(':usuario_id', $estudiante_id, PDO::PARAM_INT);
@@ -51,11 +53,10 @@ require_once '../../includes/header.php';
             if (count($mis_cursos) > 0) {
                 foreach ($mis_cursos as $curso) {
                     // Validar imagen
-                    $ruta_imagen = "../../assets/img/no-image.jpg"; // Imagen por defecto
+                    $ruta_imagen = "../../assets/img/no-image.jpg"; 
                     if (!empty($curso['imagen']) && file_exists("../../uploads/cursos/" . $curso['imagen'])) {
                         $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
                     } elseif (!empty($curso['imagen'])) {
-                        // Si la imagen está en BD pero no en carpeta, intentar ruta directa
                         $ruta_imagen = "../../uploads/cursos/" . $curso['imagen'];
                     }
         ?>
@@ -104,12 +105,10 @@ require_once '../../includes/header.php';
             }
 
         } catch (PDOException $e) {
-            // Error de Base de Datos
             echo '<div class="alert alert-danger" role="alert">
                     <i class="bi bi-exclamation-triangle-fill"></i> Error de base de datos: ' . $e->getMessage() . '
                   </div>';
         } catch (Exception $e) {
-            // Error General
             echo '<div class="alert alert-warning" role="alert">
                     <i class="bi bi-exclamation-circle"></i> ' . $e->getMessage() . '
                   </div>';
